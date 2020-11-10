@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/relab/hotstuff/config"
-	. "github.com/relab/hotstuff/data"
+	. "github.com/joe-zxh/pbft/config"
+	. "github.com/joe-zxh/pbft/data"
 )
 
 /* func TestSafeNode(t *testing.T) {

@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	fuzz "github.com/google/gofuzz"
-	"github.com/relab/hotstuff/config"
+	"github.com/joe-zxh/pbft/config"
 )
 
 func TestCanStoreAndRetrieveBlock(t *testing.T) {

@@ -18,10 +18,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/joe-zxh/pbft/client"
+	"github.com/joe-zxh/pbft/config"
+	"github.com/joe-zxh/pbft/data"
 	"github.com/relab/gorums/benchmark"
-	"github.com/relab/hotstuff/client"
-	"github.com/relab/hotstuff/config"
-	"github.com/relab/hotstuff/data"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
@@ -42,7 +42,7 @@ type options struct {
 	TLS         bool
 	Replicas    []struct {
 		ID         config.ReplicaID
-		ClientAddr string `mapstructure:"client-address"` // 这里ClientAddr指的是hotstuffserver的地址，因为 回传的时候需要 调用hotstuffclient的方法，这时候hotstuffclient相当于server，hotstuffserver相当于client
+		ClientAddr string `mapstructure:"client-address"`
 		Pubkey     string
 		Cert       string
 	}
@@ -51,7 +51,7 @@ type options struct {
 func usage() {
 	fmt.Printf("Usage: %s [options]\n", os.Args[0])
 	fmt.Println()
-	fmt.Println("Loads configuration from ./hotstuff.toml")
+	fmt.Println("Loads configuration from ./pbft.toml")
 	fmt.Println()
 	fmt.Println("Options:")
 	pflag.PrintDefaults()

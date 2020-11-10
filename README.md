@@ -1,4 +1,4 @@
-# hotstuff
+# pbft
 
 `pbft` is an implementation of the PBFT protocol [1]. It uses the Gorums [2] RPC framework for sending messages between replicas.
 

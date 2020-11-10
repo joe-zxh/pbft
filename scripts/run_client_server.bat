@@ -15,8 +15,8 @@ pushd..
 set home=%cd%
 popd
 
-set serverProcName=hotstuffserver.exe
-set clientProcName=hotstuffclient.exe
+set serverProcName=pbftserver.exe
+set clientProcName=pbftclient.exe
 
 set beg=1
 set /a end=%servernum%
