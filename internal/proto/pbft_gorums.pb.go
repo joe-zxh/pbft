@@ -1256,13 +1256,49 @@ func appendIfNotPresent(set []uint32, x uint32) []uint32 {
 // Reference imports to suppress errors if they are not otherwise used.
 var _ empty.Empty
 
-// Propose is a one-way multicast call on all nodes in configuration c,
+// PrePrepare is a one-way multicast call on all nodes in configuration c,
 // with the same in argument. The call is asynchronous and has no return value.
-func (c *Configuration) Propose(in *Block) error {
+func (c *Configuration) PrePrepare(in *PrePrepareArgs) error {
 	msgID := c.mgr.nextMsgID()
 	metadata := &ordering.Metadata{
 		MessageID: msgID,
-		MethodID:  proposeMethodID,
+		MethodID:  prePrepareMethodID,
+	}
+	msg := &gorumsMessage{metadata: metadata, message: in}
+	for _, n := range c.nodes {
+		n.sendQ <- msg
+	}
+	return nil
+}
+
+// Reference imports to suppress errors if they are not otherwise used.
+var _ empty.Empty
+
+// Prepare is a one-way multicast call on all nodes in configuration c,
+// with the same in argument. The call is asynchronous and has no return value.
+func (c *Configuration) Prepare(in *PrepareArgs) error {
+	msgID := c.mgr.nextMsgID()
+	metadata := &ordering.Metadata{
+		MessageID: msgID,
+		MethodID:  prepareMethodID,
+	}
+	msg := &gorumsMessage{metadata: metadata, message: in}
+	for _, n := range c.nodes {
+		n.sendQ <- msg
+	}
+	return nil
+}
+
+// Reference imports to suppress errors if they are not otherwise used.
+var _ empty.Empty
+
+// Commit is a one-way multicast call on all nodes in configuration c,
+// with the same in argument. The call is asynchronous and has no return value.
+func (c *Configuration) Commit(in *CommitArgs) error {
+	msgID := c.mgr.nextMsgID()
+	metadata := &ordering.Metadata{
+		MessageID: msgID,
+		MethodID:  commitMethodID,
 	}
 	msg := &gorumsMessage{metadata: metadata, message: in}
 	for _, n := range c.nodes {
@@ -1289,63 +1325,35 @@ type QuorumSpec interface {
 
 // Hotstuff is the server-side API for the Hotstuff Service
 type Hotstuff interface {
-	Propose(context.Context, *Block)
-	Vote(context.Context, *PartialCert)
-	NewView(context.Context, *QuorumCert)
+	PrePrepare(context.Context, *PrePrepareArgs)
+	Prepare(context.Context, *PrepareArgs)
+	Commit(context.Context, *CommitArgs)
 }
 
 func (s *GorumsServer) RegisterHotstuffServer(srv Hotstuff) {
-	s.srv.handlers[proposeMethodID] = func(ctx context.Context, in *gorumsMessage, _ chan<- *gorumsMessage) {
-		req := in.message.(*Block)
-		srv.Propose(ctx, req)
+	s.srv.handlers[prePrepareMethodID] = func(ctx context.Context, in *gorumsMessage, _ chan<- *gorumsMessage) {
+		req := in.message.(*PrePrepareArgs)
+		srv.PrePrepare(ctx, req)
 	}
-	s.srv.handlers[voteMethodID] = func(ctx context.Context, in *gorumsMessage, _ chan<- *gorumsMessage) {
-		req := in.message.(*PartialCert)
-		srv.Vote(ctx, req)
+	s.srv.handlers[prepareMethodID] = func(ctx context.Context, in *gorumsMessage, _ chan<- *gorumsMessage) {
+		req := in.message.(*PrepareArgs)
+		srv.Prepare(ctx, req)
 	}
-	s.srv.handlers[newViewMethodID] = func(ctx context.Context, in *gorumsMessage, _ chan<- *gorumsMessage) {
-		req := in.message.(*QuorumCert)
-		srv.NewView(ctx, req)
+	s.srv.handlers[commitMethodID] = func(ctx context.Context, in *gorumsMessage, _ chan<- *gorumsMessage) {
+		req := in.message.(*CommitArgs)
+		srv.Commit(ctx, req)
 	}
 }
 
 const hasOrderingMethods = true
 
-const proposeMethodID int32 = 0
-const voteMethodID int32 = 1
-const newViewMethodID int32 = 2
+const prePrepareMethodID int32 = 0
+const prepareMethodID int32 = 1
+const commitMethodID int32 = 2
 
 var orderingMethods = map[int32]methodInfo{
 
-	0: {requestType: new(Block).ProtoReflect(), responseType: new(empty.Empty).ProtoReflect()},
-	1: {requestType: new(PartialCert).ProtoReflect(), responseType: new(empty.Empty).ProtoReflect()},
-	2: {requestType: new(QuorumCert).ProtoReflect(), responseType: new(empty.Empty).ProtoReflect()},
-}
-
-// Reference imports to suppress errors if they are not otherwise used.
-var _ empty.Empty
-
-func (n *Node) Vote(in *PartialCert) error {
-	msgID := n.nextMsgID()
-	metadata := &ordering.Metadata{
-		MessageID: msgID,
-		MethodID:  voteMethodID,
-	}
-	msg := &gorumsMessage{metadata: metadata, message: in}
-	n.sendQ <- msg
-	return nil
-}
-
-// Reference imports to suppress errors if they are not otherwise used.
-var _ empty.Empty
-
-func (n *Node) NewView(in *QuorumCert) error {
-	msgID := n.nextMsgID()
-	metadata := &ordering.Metadata{
-		MessageID: msgID,
-		MethodID:  newViewMethodID,
-	}
-	msg := &gorumsMessage{metadata: metadata, message: in}
-	n.sendQ <- msg
-	return nil
+	0: {requestType: new(PrePrepareArgs).ProtoReflect(), responseType: new(empty.Empty).ProtoReflect()},
+	1: {requestType: new(PrepareArgs).ProtoReflect(), responseType: new(empty.Empty).ProtoReflect()},
+	2: {requestType: new(CommitArgs).ProtoReflect(), responseType: new(empty.Empty).ProtoReflect()},
 }

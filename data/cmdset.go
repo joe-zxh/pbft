@@ -54,7 +54,35 @@ func (s *CommandSet) Remove(cmds ...Command) {
 	}
 }
 
-// GetFirst returns the n first non-proposed commands in the set
+// 返回n个Command，不够n个返回nil
+func (s *CommandSet) GetExactlyFirst(n int) []Command {
+	if len(s.set) < n {
+		return nil
+	}
+
+	s.mut.Lock()
+	defer s.mut.Unlock()
+
+	if len(s.set) < n { // 2次判断，第1次为了防止多次加锁，第2次保证一定有n个指令。
+		return nil
+	}
+
+	cmds := make([]Command, 0, n)
+	i := 0
+	e := s.order.Front()
+	for i < n {
+		if e == nil {
+			break
+		}
+		if c := e.Value.(*cmdElement); !c.proposed {
+			cmds = append(cmds, c.cmd)
+			i++
+		}
+		e = e.Next()
+	}
+	return cmds
+}
+
 func (s *CommandSet) GetFirst(n int) []Command {
 	s.mut.Lock()
 	defer s.mut.Unlock()

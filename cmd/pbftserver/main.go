@@ -26,7 +26,6 @@ import (
 	"github.com/joe-zxh/pbft/client"
 	"github.com/joe-zxh/pbft/config"
 	"github.com/joe-zxh/pbft/data"
-	"github.com/joe-zxh/pbft/pacemaker"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
@@ -289,12 +288,13 @@ type cmdID struct {
 	sequenceNum uint64
 }
 
-type hotstuffServer struct {
+// 这个server是面向 客户端的。
+type pbftServer struct {
 	ctx       context.Context
 	cancel    context.CancelFunc
 	conf      *options
 	gorumsSrv *client.GorumsServer
-	hs        *hotstuff.HotStuff
+	pbft      *pbft.PBFT
 	pm        interface {
 		Run(context.Context)
 	}
@@ -306,7 +306,7 @@ type hotstuffServer struct {
 	pldatas      map[int32]([]byte)
 }
 
-func newHotStuffServer(conf *options, replicaConfig *config.ReplicaConfig) *hotstuffServer {
+func newHotStuffServer(conf *options, replicaConfig *config.ReplicaConfig) *pbftServer {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	serverOpts := []client.ServerOption{}
@@ -318,7 +318,7 @@ func newHotStuffServer(conf *options, replicaConfig *config.ReplicaConfig) *hots
 
 	serverOpts = append(serverOpts, client.WithGRPCServerOptions(grpcServerOpts...))
 
-	srv := &hotstuffServer{
+	srv := &pbftServer{
 		ctx:          ctx,
 		cancel:       cancel,
 		conf:         conf,
@@ -328,26 +328,12 @@ func newHotStuffServer(conf *options, replicaConfig *config.ReplicaConfig) *hots
 		pldatas:      make(map[int32]([]byte)),
 	}
 	srv.initPayloadData()
-	var pm hotstuff.Pacemaker
-	switch conf.PmType {
-	case "fixed":
-		pm = pacemaker.NewFixedLeader(conf.LeaderID)
-	case "round-robin":
-		pm = pacemaker.NewRoundRobin(
-			conf.ViewChange, conf.Schedule, time.Duration(conf.ViewTimeout)*time.Millisecond,
-		)
-	default:
-		fmt.Fprintf(os.Stderr, "Invalid pacemaker type: '%s'\n", conf.PmType)
-		os.Exit(1)
-	}
-	srv.hs = hotstuff.New(replicaConfig, pm, conf.TLS, time.Minute, time.Duration(conf.ViewTimeout)*time.Millisecond)
-	srv.pm = pm.(interface{ Run(context.Context) })
-	// Use a custom server instead of the gorums one
+	srv.pbft = pbft.New(replicaConfig, conf.TLS, time.Minute, time.Duration(conf.ViewTimeout)*time.Millisecond)
 	srv.gorumsSrv.RegisterClientServer(srv)
 	return srv
 }
 
-func (srv *hotstuffServer) initPayloadData() { // 初始化一些常用的负载的大小
+func (srv *pbftServer) initPayloadData() { // 初始化一些常用的负载的大小
 	srv.pldatas[0] = []byte(``)
 
 	var endSize int32 = 4096
@@ -364,7 +350,7 @@ func (srv *hotstuffServer) initPayloadData() { // 初始化一些常用的负载
 	}
 }
 
-func (srv *hotstuffServer) getPayloadData(size int32) []byte {
+func (srv *pbftServer) getPayloadData(size int32) []byte {
 	if data, ok := srv.pldatas[size]; ok {
 		return data
 	}
@@ -377,13 +363,13 @@ func (srv *hotstuffServer) getPayloadData(size int32) []byte {
 	return srv.pldatas[size]
 }
 
-func (srv *hotstuffServer) Start(address string) error {
+func (srv *pbftServer) Start(address string) error {
 	lis, err := net.Listen("tcp", address)
 	if err != nil {
 		return err
 	}
 
-	err = srv.hs.Start() // 这里是hs的入口
+	err = srv.pbft.Start() // 这里是hs的入口
 	if err != nil {
 		return err
 	}
@@ -395,28 +381,30 @@ func (srv *hotstuffServer) Start(address string) error {
 	return nil
 }
 
-func (srv *hotstuffServer) Stop() {
+func (srv *pbftServer) Stop() {
 	srv.gorumsSrv.Stop()
 	srv.cancel()
-	srv.hs.Close()
+	srv.pbft.Close()
 }
 
-func (srv *hotstuffServer) ExecCommand(_ context.Context, cmd *client.Command, out func(*client.Empty, error)) {
+func (srv *pbftServer) ExecCommand(_ context.Context, cmd *client.Command, out func(*client.Empty, error)) {
 	finished := make(chan struct{})
 	id := cmdID{cmd.ClientID, cmd.SequenceNumber}
 	srv.mut.Lock()
 	srv.finishedCmds[id] = finished
 	srv.mut.Unlock()
 
-	cmd.Data = srv.getPayloadData(cmd.PayloadSize)
+	if srv.pbft.IsLeader {
+		cmd.Data = srv.getPayloadData(cmd.PayloadSize)
 
-	b, err := proto.MarshalOptions{Deterministic: true}.Marshal(cmd)
-	if err != nil {
-		log.Fatalf("Failed to marshal command: %v", err)
-		out(nil, status.Errorf(codes.InvalidArgument, "Failed to marshal command: %v", err))
+		b, err := proto.MarshalOptions{Deterministic: true}.Marshal(cmd)
+		if err != nil {
+			log.Fatalf("Failed to marshal command: %v", err)
+			out(nil, status.Errorf(codes.InvalidArgument, "Failed to marshal command: %v", err))
+		}
+		srv.pbft.AddCommand(data.Command(b))
+		srv.pbft.Propose(false)
 	}
-	srv.hs.AddCommand(data.Command(b)) // 对于hotstuff来说，如果节点个数很多的时候，时延可能很久(因为要轮到那个节点当leader的时候才有机会被提交)，所以客户端的请求还是必须发送给所有节点。
-	// 不然不好控制客户端的个数。
 
 	go func(id cmdID, finished chan struct{}) {
 		<-finished
@@ -430,8 +418,8 @@ func (srv *hotstuffServer) ExecCommand(_ context.Context, cmd *client.Command, o
 	}(id, finished)
 }
 
-func (srv *hotstuffServer) onExec() {
-	for cmds := range srv.hs.GetExec() {
+func (srv *pbftServer) onExec() {
+	for cmds := range srv.pbft.GetExec() {
 		if len(cmds) > 0 && srv.conf.PrintThroughput {
 			now := time.Now().UnixNano()
 			prev := atomic.SwapInt64(&srv.lastExecTime, now)

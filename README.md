@@ -12,6 +12,11 @@ To generate public and private keys for the servers, run `cmd/hotstuffkeygen/hot
 To start four servers, run `scripts/run_servers.sh` with any desired options.
 To start the client, run `cmd/pbftclient/pbftclient`.
 
+## Protoc安装
+1. 下载 protoc v3.11.2：https://github.com/google/protobuf/releases
+2. 下载protoc关于Go代码的生成器：go get google.golang.org/protobuf/cmd/protoc-gen-go
+3. 下载Gorums插件: go get github.com/relab/gorums/cmd/protoc-gen-gorums
+4. 2步骤下载的内容不兼容，需要把1中解压的include/google覆盖到$GOPATH\pkg\mod\github.com\gogo\protobuf@v1.2.1\protobuf\google。
 
 ## References
 

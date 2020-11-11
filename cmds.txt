@@ -4,6 +4,8 @@
 .\hotstuffkeygen.exe -p r* -n 4 --hosts 127.0.0.1 --tls keys
 
 生成pb.go和gorum.go：
+
+Lab:
 protoc `
 --proto_path=D:\Documents\ws\go\pkg\mod\github.com\gogo\protobuf@v1.2.1\protobuf `
 --proto_path=D:\Documents\ws\go\pkg\mod\github.com\relab\gorums@v0.2.1 `
@@ -11,3 +13,23 @@ protoc `
 --go_out=paths=source_relative:.\client `
 --gorums_out=paths=source_relative:.\client `
 client.proto
+
+
+Asus:
+## client.proto的安装
+protoc `
+--proto_path=F:\ws\go\pkg\mod\github.com\gogo\protobuf@v1.2.1\protobuf `
+--proto_path=F:\ws\go\pkg\mod\github.com\relab\gorums@v0.2.1 `
+--proto_path=.\client  `
+--go_out=paths=source_relative:.\client `
+--gorums_out=paths=source_relative:.\client `
+client.proto
+
+## pbft.proto的安装
+protoc `
+--proto_path=F:\ws\go\pkg\mod\github.com\gogo\protobuf@v1.2.1\protobuf `
+--proto_path=F:\ws\go\pkg\mod\github.com\relab\gorums@v0.2.1 `
+--proto_path=.\internal\proto  `
+--go_out=paths=source_relative:.\internal\proto `
+--gorums_out=paths=source_relative:.\internal\proto `
+pbft.proto

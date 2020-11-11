@@ -1,4 +1,4 @@
-package hotstuff
+package pbft
 
 import (
 	"context"
@@ -31,52 +31,40 @@ func init() {
 	logger = logging.GetLogger()
 }
 
-// Pacemaker is a mechanism that provides synchronization
-type Pacemaker interface {
-	GetLeader(view int) config.ReplicaID
-	Init(*HotStuff)
-}
-
-// HotStuff is a thing
-type HotStuff struct {
-	*consensus.HotStuffCore
+// PBFT is a thing
+type PBFT struct {
+	*consensus.PBFTCore
 	tls bool
-
-	pacemaker Pacemaker
 
 	nodes map[config.ReplicaID]*proto.Node
 
-	server  *hotstuffServer
+	server  *pbftServer
 	manager *proto.Manager
 	cfg     *proto.Configuration
 
 	closeOnce sync.Once
 
-	qcTimeout      time.Duration
 	connectTimeout time.Duration
 }
 
 //New creates a new GorumsHotStuff backend object.
-func New(conf *config.ReplicaConfig, pacemaker Pacemaker, tls bool, connectTimeout, qcTimeout time.Duration) *HotStuff {
-	hs := &HotStuff{
-		pacemaker:      pacemaker,
-		HotStuffCore:   consensus.New(conf),
+func New(conf *config.ReplicaConfig, tls bool, connectTimeout, qcTimeout time.Duration) *PBFT {
+	pbft := &PBFT{
+		PBFTCore:       consensus.New(conf),
 		nodes:          make(map[config.ReplicaID]*proto.Node),
 		connectTimeout: connectTimeout,
-		qcTimeout:      qcTimeout,
 	}
-	pacemaker.Init(hs)
-	return hs
+	return pbft
 }
 
 //Start starts the server and client
-func (hs *HotStuff) Start() error {
-	addr := hs.Config.Replicas[hs.Config.ID].Address
-	err := hs.startServer(addr)
+func (pbft *PBFT) Start() error {
+	addr := pbft.Config.Replicas[pbft.Config.ID].Address
+	err := pbft.startServer(addr)
 	if err != nil {
 		return fmt.Errorf("Failed to start GRPC Server: %w", err)
 	}
-	err = hs.startClient(hs.connectTimeout)
+	err = pbft.startClient(pbft.connectTimeout)
 	if err != nil {
 		return fmt.Errorf("Failed to start GRPC Clients: %w", err)
 	}
@@ -84,24 +72,24 @@ func (hs *HotStuff) Start() error {
 }
 
 // 作为rpc的client端，调用其他hsserver的rpc。
-func (hs *HotStuff) startClient(connectTimeout time.Duration) error {
-	idMapping := make(map[string]uint32, len(hs.Config.Replicas)-1)
-	for _, replica := range hs.Config.Replicas {
-		if replica.ID != hs.Config.ID {
+func (pbft *PBFT) startClient(connectTimeout time.Duration) error {
+	idMapping := make(map[string]uint32, len(pbft.Config.Replicas)-1)
+	for _, replica := range pbft.Config.Replicas {
+		if replica.ID != pbft.Config.ID {
 			idMapping[replica.Address] = uint32(replica.ID)
 		}
 	}
 
 	// embed own ID to allow other replicas to identify messages from this replica
 	md := metadata.New(map[string]string{
-		"id": fmt.Sprintf("%d", hs.Config.ID),
+		"id": fmt.Sprintf("%d", pbft.Config.ID),
 	})
 
 	perNodeMD := func(nid uint32) metadata.MD {
 		var b [4]byte
 		binary.LittleEndian.PutUint32(b[:], nid)
 		hash := sha512.Sum512(b[:])
-		R, S, err := ecdsa.Sign(rand.Reader, hs.Config.PrivateKey, hash[:])
+		R, S, err := ecdsa.Sign(rand.Reader, pbft.Config.PrivateKey, hash[:])
 		if err != nil {
 			panic(fmt.Errorf("Could not sign proof for replica %d: %w", nid, err))
 		}
@@ -121,8 +109,8 @@ func (hs *HotStuff) startClient(connectTimeout time.Duration) error {
 		grpc.WithReturnConnectionError(),
 	}
 
-	if hs.tls {
-		grpcOpts = append(grpcOpts, grpc.WithTransportCredentials(credentials.NewClientTLSFromCert(hs.Config.CertPool, "")))
+	if pbft.tls {
+		grpcOpts = append(grpcOpts, grpc.WithTransportCredentials(credentials.NewClientTLSFromCert(pbft.Config.CertPool, "")))
 	} else {
 		grpcOpts = append(grpcOpts, grpc.WithInsecure())
 	}
@@ -133,13 +121,13 @@ func (hs *HotStuff) startClient(connectTimeout time.Duration) error {
 	if err != nil {
 		return fmt.Errorf("Failed to connect to replicas: %w", err)
 	}
-	hs.manager = mgr
+	pbft.manager = mgr
 
 	for _, node := range mgr.Nodes() {
-		hs.nodes[config.ReplicaID(node.ID())] = node
+		pbft.nodes[config.ReplicaID(node.ID())] = node
 	}
 
-	hs.cfg, err = hs.manager.NewConfiguration(hs.manager.NodeIDs(), &struct{}{})
+	pbft.cfg, err = pbft.manager.NewConfiguration(pbft.manager.NodeIDs(), &struct{}{})
 	if err != nil {
 		return fmt.Errorf("Failed to create configuration: %w", err)
 	}
@@ -147,8 +135,8 @@ func (hs *HotStuff) startClient(connectTimeout time.Duration) error {
 	return nil
 }
 
-// startServer runs a new instance of hotstuffServer
-func (hs *HotStuff) startServer(port string) error {
+// startServer runs a new instance of pbftServer
+func (pbft *PBFT) startServer(port string) error {
 	lis, err := net.Listen("tcp", port)
 	if err != nil {
 		return fmt.Errorf("Failed to listen to port %s: %w", port, err)
@@ -157,93 +145,74 @@ func (hs *HotStuff) startServer(port string) error {
 	serverOpts := []proto.ServerOption{}
 	grpcServerOpts := []grpc.ServerOption{}
 
-	if hs.tls {
-		grpcServerOpts = append(grpcServerOpts, grpc.Creds(credentials.NewServerTLSFromCert(hs.Config.Cert)))
+	if pbft.tls {
+		grpcServerOpts = append(grpcServerOpts, grpc.Creds(credentials.NewServerTLSFromCert(pbft.Config.Cert)))
 	}
 
 	serverOpts = append(serverOpts, proto.WithGRPCServerOptions(grpcServerOpts...))
 
-	hs.server = newHotStuffServer(hs, proto.NewGorumsServer(serverOpts...))
-	hs.server.RegisterHotstuffServer(hs.server)
+	pbft.server = newPBFTServer(pbft, proto.NewGorumsServer(serverOpts...))
+	pbft.server.RegisterHotstuffServer(pbft.server)
 
-	go hs.server.Serve(lis)
+	go pbft.server.Serve(lis)
 	return nil
 }
 
-// Close closes all connections made by the HotStuff instance
-func (hs *HotStuff) Close() {
-	hs.closeOnce.Do(func() {
-		hs.HotStuffCore.Close()
-		hs.manager.Close()
-		hs.server.Stop()
+// Close closes all connections made by the PBFT instance
+func (pbft *PBFT) Close() {
+	pbft.closeOnce.Do(func() {
+		pbft.PBFTCore.Close()
+		pbft.manager.Close()
+		pbft.server.Stop()
 	})
 }
 
-// Propose broadcasts a new proposal to all replicas
-func (hs *HotStuff) Propose() {
-	proposal := hs.CreateProposal()
-	logger.Printf("Propose (%d commands): %s\n", len(proposal.Commands), proposal)
-	protobuf := proto.BlockToProto(proposal)
-	hs.cfg.Propose(protobuf) // 通过gorums的cfg进行multicast，multicast应该是 不会发送消息给自己的。
-	// self-vote
-	hs.handlePropose(proposal)
-}
-
-// SendNewView sends a NEW-VIEW message to a specific replica
-func (hs *HotStuff) SendNewView(id config.ReplicaID) {
-	qc := hs.GetQCHigh()
-	if node, ok := hs.nodes[id]; ok {
-		node.NewView(proto.QuorumCertToProto(qc))
-	}
-}
-
-func (hs *HotStuff) handlePropose(block *data.Block) {
-	p, err := hs.OnReceiveProposal(block)
-	if err != nil {
-		logger.Println("OnReceiveProposal returned with error:", err)
+// Propose broadcasts a new proposal(Pre-Prepare) to all replicas
+func (pbft *PBFT) Propose(timeout bool) {
+	proposal := pbft.CreateProposal(timeout)
+	if proposal == nil {
 		return
 	}
-	leaderID := hs.pacemaker.GetLeader(block.Height)
-	if hs.Config.ID == leaderID {
-		hs.OnReceiveVote(p)
-	} else if leader, ok := hs.nodes[leaderID]; ok {
-		leader.Vote(proto.PartialCertToProto(p))
-	}
+	logger.Printf("Propose (%d commands): %s\n", len(proposal.Commands), proposal)
+	protobuf := proto.EntryToPPProto(proposal)
+	pbft.cfg.PrePrepare(protobuf)   // 通过gorums的cfg进行multicast，multicast应该是 不会发送消息给自己的。
+	pbft.handlePrePrepare(proposal) // leader自己也要处理proposal
 }
 
-type hotstuffServer struct {
-	*HotStuff
+// 这个server是面向 集群内部的。
+type pbftServer struct {
+	*PBFT
 	*proto.GorumsServer
 	// maps a stream context to client info
 	mut     sync.RWMutex
 	clients map[context.Context]config.ReplicaID
 }
 
-func newHotStuffServer(hs *HotStuff, srv *proto.GorumsServer) *hotstuffServer {
-	hsSrv := &hotstuffServer{
-		HotStuff:     hs,
+func newPBFTServer(pbft *PBFT, srv *proto.GorumsServer) *pbftServer {
+	pbftSrv := &pbftServer{
+		PBFT:         pbft,
 		GorumsServer: srv,
 		clients:      make(map[context.Context]config.ReplicaID),
 	}
-	return hsSrv
+	return pbftSrv
 }
 
-func (hs *hotstuffServer) getClientID(ctx context.Context) (config.ReplicaID, error) {
-	hs.mut.RLock()
+func (pbft *pbftServer) getClientID(ctx context.Context) (config.ReplicaID, error) {
+	pbft.mut.RLock()
 	// fast path for known stream
-	if id, ok := hs.clients[ctx]; ok {
-		hs.mut.RUnlock()
+	if id, ok := pbft.clients[ctx]; ok {
+		pbft.mut.RUnlock()
 		return id, nil
 	}
 
-	hs.mut.RUnlock()
-	hs.mut.Lock()
-	defer hs.mut.Unlock()
+	pbft.mut.RUnlock()
+	pbft.mut.Lock()
+	defer pbft.mut.Unlock()
 
 	// cleanup finished streams
-	for ctx := range hs.clients {
+	for ctx := range pbft.clients {
 		if ctx.Err() != nil {
-			delete(hs.clients, ctx)
+			delete(pbft.clients, ctx)
 		}
 	}
 
@@ -262,7 +231,7 @@ func (hs *hotstuffServer) getClientID(ctx context.Context) (config.ReplicaID, er
 		return 0, fmt.Errorf("getClientID: cannot parse ID field: %w", err)
 	}
 
-	info, ok := hs.Config.Replicas[config.ReplicaID(id)]
+	info, ok := pbft.Config.Replicas[config.ReplicaID(id)]
 	if !ok {
 		return 0, fmt.Errorf("getClientID: could not find info about id '%d'", id)
 	}
@@ -285,36 +254,67 @@ func (hs *hotstuffServer) getClientID(ctx context.Context) (config.ReplicaID, er
 	S.SetBytes(v1)
 
 	var b [4]byte
-	binary.LittleEndian.PutUint32(b[:], uint32(hs.Config.ID))
+	binary.LittleEndian.PutUint32(b[:], uint32(pbft.Config.ID))
 	hash := sha512.Sum512(b[:])
 
 	if !ecdsa.Verify(info.PubKey, hash[:], &R, &S) {
 		return 0, fmt.Errorf("Invalid proof")
 	}
 
-	hs.clients[ctx] = config.ReplicaID(id)
+	pbft.clients[ctx] = config.ReplicaID(id)
 	return config.ReplicaID(id), nil
 }
 
-// Propose handles a replica's response to the Propose QC from the leader
-func (hs *hotstuffServer) Propose(ctx context.Context, protoB *proto.Block) {
-	block := protoB.FromProto()
-	id, err := hs.getClientID(ctx)
+func (pbft *PBFT) handlePrePrepare(entry *data.Entry) {
+
+	pbft.PBFTCore.Lock.Lock()
+
+	if !pbft.Changing && pbft.View == entry.View && pbft.WaterLow <= entry.Seq && entry.Seq < pbft.WaterHigh {
+		pbft.stopTimer()
+		pbft.Log[data.EntryID{V: entry.View, N: entry.Seq}] = entry
+
+		pbft.PBFTCore.Lock.Unlock()
+
+		p := &proto.PrepareArgs{
+			View: entry.View,
+			Seq:  entry.Seq,
+			Hash: entry.Hash().ToSlice(),
+		}
+
+		pbft.cfg.Prepare(p)
+		pbft.handlePrepare(p)
+	} else {
+		pbft.PBFTCore.Lock.Unlock()
+	}
+}
+
+func (pbft *pbftServer) PrePrepare(ctx context.Context, protoE *proto.PrePrepareArgs) {
+	entry := protoE.PPProto2Entry()
+	id, err := pbft.getClientID(ctx)
 	if err != nil {
 		logger.Printf("Failed to get client ID: %v", err)
 		return
 	}
-	// defaults to 0 if error
-	block.Proposer = id
-	hs.handlePropose(block)
+	if uint32(id) == pbft.Leader {
+		pbft.handlePrePrepare(entry)
+	}
 }
 
-func (hs *hotstuffServer) Vote(ctx context.Context, cert *proto.PartialCert) {
-	hs.OnReceiveVote(cert.FromProto())
+func (pbft *PBFT) handlePrepare(p *proto.PrepareArgs) {
+	s.lock.Lock()
 }
 
-// NewView handles the leader's response to receiving a NewView rpc from a replica
-func (hs *hotstuffServer) NewView(ctx context.Context, msg *proto.QuorumCert) {
+func (pbft *pbftServer) Prepare(ctx context.Context, p *proto.PrepareArgs) {
+	pbft.handlePrepare(p)
+}
+
+func (pbft *pbftServer) Commit(ctx context.Context, msg *proto.CommitArgs) {
 	qc := msg.FromProto()
-	hs.OnReceiveNewView(qc)
+	pbft.OnReceiveNewView(qc)
+}
+
+func (pbft *pbftServer) stopTimer() {
+	if pbft.Change != nil {
+		pbft.Change.Stop()
+	}
 }
