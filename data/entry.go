@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"github.com/joe-zxh/pbft/internal/proto"
 	"sync"
 )
 
@@ -29,49 +28,48 @@ type EntryID struct {
 }
 
 type Entry struct {
-	Lock sync.Mutex
-
-	// preprepareArgs
-	View     uint32
-	Seq      uint32
-	Commands []Command
-
-	P          []*proto.PrepareArgs
+	Mut        sync.Mutex
+	PP         *PrePrepareArgs
+	P          []*PrepareArgs
 	SendCommit bool
-	C          []*proto.CommitArgs
+	C          []*CommitArgs
 	Committed  bool
-	SendReply  bool
-	hash       *EntryHash
+	Digest     *EntryHash
 }
 
 func (e Entry) String() string {
-	return fmt.Sprintf("Entry{View: %d, Seq: %d, sendReply: %v}",
-		e.View, e.Seq, e.SendReply)
+	return fmt.Sprintf("Entry{View: %d, Seq: %d, Committed: %v}",
+		e.PP.View, e.PP.Seq, e.Committed)
 }
 
 // Hash returns a hash digest of the block.
 func (e Entry) Hash() EntryHash {
 	// return cached hash if available
-	if e.hash != nil {
-		return *e.hash
+	if e.Digest != nil {
+		return *e.Digest
 	}
 
 	s512 := sha512.New()
 
 	byte4 := make([]byte, 4)
-	binary.LittleEndian.PutUint32(byte4, uint32(e.View))
+	binary.LittleEndian.PutUint32(byte4, uint32(e.PP.View))
 	s512.Write(byte4[:])
 
-	binary.LittleEndian.PutUint32(byte4, uint32(e.Seq))
+	binary.LittleEndian.PutUint32(byte4, uint32(e.PP.Seq))
 	s512.Write(byte4[:])
 
-	for _, cmd := range e.Commands {
+	binary.LittleEndian.PutUint32(byte4, uint32(e.PP.Sender))
+	s512.Write(byte4[:])
+
+	for _, cmd := range e.PP.Commands {
 		s512.Write([]byte(cmd))
 	}
 
-	e.hash = new(EntryHash)
+	e.Digest = new(EntryHash)
 	sum := s512.Sum(nil)
-	copy(e.hash[:], sum)
+	copy(e.Digest[:], sum)
 
-	return *e.hash
+	fmt.Printf("digest: %v\n", e.Digest)
+
+	return *e.Digest
 }

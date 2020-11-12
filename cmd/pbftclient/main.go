@@ -96,7 +96,7 @@ func main() {
 	viper.BindPFlags(pflag.CommandLine)
 
 	// read main config file in working dir
-	viper.SetConfigName("hotstuff")
+	viper.SetConfigName("pbft")
 	viper.AddConfigPath(".")
 	err := viper.ReadInConfig()
 	if err != nil {

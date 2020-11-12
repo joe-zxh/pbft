@@ -1,6 +1,7 @@
 package consensus
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"go.uber.org/atomic"
@@ -33,11 +34,11 @@ type PBFTCore struct {
 	Config   *config.ReplicaConfig
 	cancel   context.CancelFunc // stops any goroutines started by HotStuff
 
-	exec chan []data.Command
+	Exec chan []data.Command
 
 	// from pbft
-	Lock       sync.Mutex // Lock for all internal data
-	id         uint32
+	Mut        sync.Mutex // Lock for all internal data
+	ID         uint32
 	tSeq       atomic.Uint32           // Total sequence number of next request
 	seqmap     map[data.EntryID]uint32 // Use to map {Cid,CSeq} to global sequence number for all prepared message
 	View       uint32
@@ -69,20 +70,8 @@ func (pbft *PBFTCore) CommandSetLen(command data.Command) int {
 	return pbft.cmdCache.Len()
 }
 
-func (pbft *PBFTCore) commit(entry *data.Entry) {
-	// only called from within update. Thus covered by its mutex lock.
-	if pbft.bExec.Height < block.Height {
-		if parent, ok := pbft.Blocks.ParentOf(block); ok {
-			hs.commit(parent) // todo: 递归改循环
-		}
-		entry.Committed = true
-		logger.Println("EXEC", entry)
-		pbft.exec <- entry.Commands
-	}
-}
-
 // CreateProposal creates a new proposal
-func (pbft *PBFTCore) CreateProposal(timeout bool) *data.Entry {
+func (pbft *PBFTCore) CreateProposal(timeout bool) *data.PrePrepareArgs {
 
 	var batch []data.Command
 
@@ -95,7 +84,7 @@ func (pbft *PBFTCore) CreateProposal(timeout bool) *data.Entry {
 	if batch == nil {
 		return nil
 	}
-	e := &data.Entry{
+	e := &data.PrePrepareArgs{
 		View:     pbft.View,
 		Seq:      pbft.tSeq.Inc(),
 		Commands: batch,
@@ -114,13 +103,13 @@ func New(conf *config.ReplicaConfig) *PBFTCore {
 		Config:   conf,
 		cancel:   cancel,
 		cmdCache: data.NewCommandSet(),
-		exec:     make(chan []data.Command, 1),
+		Exec:     make(chan []data.Command, 1),
 
 		// pbft
-		id:         uint32(conf.ID),
+		ID:         uint32(conf.ID),
 		seqmap:     make(map[data.EntryID]uint32),
 		View:       1,
-		apply:      -1,
+		apply:      0,
 		Log:        make(map[data.EntryID]*data.Entry),
 		cps:        make(map[int]*CheckPoint),
 		WaterLow:   0,
@@ -133,11 +122,11 @@ func New(conf *config.ReplicaConfig) *PBFTCore {
 		state:      make([]interface{}, 1),
 		applyQueue: util.NewPriorityQueue(),
 		vcs:        make(map[uint32][]*ViewChangeArgs),
-		lastcp:     -1,
+		lastcp:     0,
 	}
 	pbft.q = pbft.f*2 + 1
 	pbft.Leader = (pbft.View-1)%pbft.n + 1
-	pbft.IsLeader = (pbft.Leader == pbft.id)
+	pbft.IsLeader = (pbft.Leader == pbft.ID)
 
 	// Put an initial stable checkpoint
 	cp := pbft.getCheckPoint(-1)
@@ -165,16 +154,44 @@ func (pbft *PBFTCore) Close() {
 }
 
 func (pbft *PBFTCore) GetExec() chan []data.Command {
-	return pbft.exec
+	return pbft.Exec
 }
 
 func (pbft *PBFTCore) GetEntry(id data.EntryID) *data.Entry {
 	_, ok := pbft.Log[id]
 	if !ok {
-		pbft.Log[id] = &data.Entry{
-			P: nil,
-			C: nil,
-		}
+		pbft.Log[id] = &data.Entry{}
 	}
 	return pbft.Log[id]
+}
+
+// Lock ent.lock before call this function
+// Locks : acquire s.lock before call this function
+func (pbft *PBFTCore) Prepared(ent *data.Entry) bool {
+	if len(ent.P) > int(2*pbft.f) {
+		// Key is the id of sender replica
+		validSet := make(map[uint32]bool)
+		for i, sz := 0, len(ent.P); i < sz; i++ {
+			if ent.P[i].View == ent.PP.View && ent.P[i].Seq == ent.PP.Seq && bytes.Equal(ent.P[i].Digest[:], ent.Digest[:]) {
+				validSet[ent.P[i].Sender] = true
+			}
+		}
+		return len(validSet) > int(2*pbft.f)
+	}
+	return false
+}
+
+// Locks : acquire s.lock before call this function
+func (pbft *PBFTCore) Committed(ent *data.Entry) bool {
+	if len(ent.C) > int(2*pbft.f) {
+		// Key is replica id
+		validSet := make(map[uint32]bool)
+		for i, sz := 0, len(ent.C); i < sz; i++ {
+			if ent.C[i].View == ent.PP.View && ent.C[i].Seq == ent.PP.Seq && bytes.Equal(ent.C[i].Digest[:], ent.Digest[:]) {
+				validSet[ent.C[i].Sender] = true
+			}
+		}
+		return len(validSet) > int(2*pbft.f)
+	}
+	return false
 }

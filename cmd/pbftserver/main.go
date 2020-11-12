@@ -144,7 +144,7 @@ func main() {
 	viper.BindPFlags(pflag.CommandLine)
 
 	// read main config file in working dir
-	viper.SetConfigName("hotstuff")
+	viper.SetConfigName("pbft")
 	viper.AddConfigPath(".")
 	err := viper.ReadInConfig()
 	if err != nil {
@@ -295,9 +295,6 @@ type pbftServer struct {
 	conf      *options
 	gorumsSrv *client.GorumsServer
 	pbft      *pbft.PBFT
-	pm        interface {
-		Run(context.Context)
-	}
 
 	mut          sync.Mutex
 	finishedCmds map[cmdID]chan struct{}
@@ -375,7 +372,6 @@ func (srv *pbftServer) Start(address string) error {
 	}
 
 	go srv.gorumsSrv.Serve(lis)
-	go srv.pm.Run(srv.ctx)
 	go srv.onExec()
 
 	return nil

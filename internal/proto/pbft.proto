@@ -33,11 +33,11 @@ message PrePrepareArgs {
 message PrepareArgs {
   uint32 View = 1;
   uint32 Seq = 2;
-  bytes Hash = 3;
+  bytes Digest = 3;
 }
 
 message CommitArgs {
   uint32 View = 1;
   uint32 Seq = 2;
-  bytes Hash = 3;
+  bytes Digest = 3;
 }

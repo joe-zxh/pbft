@@ -5,36 +5,69 @@ import (
 	"github.com/joe-zxh/pbft/data"
 )
 
-func EntryToPPProto(e *data.Entry) *PrePrepareArgs {
-	commands := make([]*Command, 0, len(e.Commands))
-	for _, cmd := range e.Commands {
+func PP2Proto(dpp *data.PrePrepareArgs) *PrePrepareArgs {
+	commands := make([]*Command, 0, len(dpp.Commands))
+	for _, cmd := range dpp.Commands {
 		commands = append(commands, CommandToProto(cmd))
 	}
 	return &PrePrepareArgs{
-		View:     e.View,
-		Seq:      e.Seq,
+		View:     dpp.View,
+		Seq:      dpp.Seq,
 		Commands: commands,
 	}
 }
 
-func (pp *PrePrepareArgs) PPProto2Entry() *data.Entry {
+func (pp *PrePrepareArgs) Proto2PP() *data.PrePrepareArgs {
 	commands := make([]data.Command, 0, len(pp.GetCommands()))
 	for _, cmd := range pp.GetCommands() {
-		commands = append(commands, cmd.FromProto())
+		commands = append(commands, cmd.Proto2Command())
 	}
-	e := &data.Entry{
+	dpp := &data.PrePrepareArgs{
 		View:     pp.View,
 		Seq:      pp.Seq,
 		Commands: commands,
 	}
-	e.Hash()
-	return e
+	return dpp
+}
+
+func P2Proto(dp *data.PrepareArgs) *PrepareArgs {
+	return &PrepareArgs{
+		View:   dp.View,
+		Seq:    dp.Seq,
+		Digest: dp.Digest.ToSlice(),
+	}
+}
+
+func (p *PrepareArgs) Proto2P() *data.PrepareArgs {
+	dpp := &data.PrepareArgs{
+		View: p.View,
+		Seq:  p.Seq,
+	}
+	copy(dpp.Digest[:], p.Digest[:len(dpp.Digest)])
+	return dpp
+}
+
+func C2Proto(dc *data.CommitArgs) *CommitArgs {
+	return &CommitArgs{
+		View:   dc.View,
+		Seq:    dc.Seq,
+		Digest: dc.Digest.ToSlice(),
+	}
+}
+
+func (c *CommitArgs) Proto2C() *data.CommitArgs {
+	dc := &data.CommitArgs{
+		View: c.View,
+		Seq:  c.Seq,
+	}
+	copy(dc.Digest[:], c.Digest[:len(dc.Digest)])
+	return dc
 }
 
 func CommandToProto(cmd data.Command) *Command {
 	return &Command{Data: []byte(cmd)}
 }
 
-func (cmd *Command) FromProto() data.Command {
+func (cmd *Command) Proto2Command() data.Command {
 	return data.Command(cmd.GetData())
 }

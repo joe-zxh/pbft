@@ -169,14 +169,15 @@ func (pbft *PBFT) Close() {
 
 // Propose broadcasts a new proposal(Pre-Prepare) to all replicas
 func (pbft *PBFT) Propose(timeout bool) {
-	proposal := pbft.CreateProposal(timeout)
-	if proposal == nil {
+	pp := pbft.CreateProposal(timeout)
+	if pp == nil {
 		return
 	}
-	logger.Printf("Propose (%d commands): %s\n", len(proposal.Commands), proposal)
-	protobuf := proto.EntryToPPProto(proposal)
-	pbft.cfg.PrePrepare(protobuf)   // 通过gorums的cfg进行multicast，multicast应该是 不会发送消息给自己的。
-	pbft.handlePrePrepare(proposal) // leader自己也要处理proposal
+	logger.Printf("[B/PrePrepare]: view: %d, seq: %d, (%d commands)\n", pp.View, pp.Seq, len(pp.Commands))
+	protobuf := proto.PP2Proto(pp)
+	pbft.cfg.PrePrepare(protobuf) // 通过gorums的cfg进行multicast，multicast应该是 不会发送消息给自己的。
+	pp.Sender = pbft.ID
+	pbft.handlePrePrepare(pp) // leader自己也要处理proposal
 }
 
 // 这个server是面向 集群内部的。
@@ -265,56 +266,126 @@ func (pbft *pbftServer) getClientID(ctx context.Context) (config.ReplicaID, erro
 	return config.ReplicaID(id), nil
 }
 
-func (pbft *PBFT) handlePrePrepare(entry *data.Entry) {
+func (pbft *PBFT) handlePrePrepare(pp *data.PrePrepareArgs) {
 
-	pbft.PBFTCore.Lock.Lock()
+	pbft.PBFTCore.Mut.Lock()
 
-	if !pbft.Changing && pbft.View == entry.View && pbft.WaterLow <= entry.Seq && entry.Seq < pbft.WaterHigh {
-		pbft.stopTimer()
-		pbft.Log[data.EntryID{V: entry.View, N: entry.Seq}] = entry
+	if !pbft.Changing && pbft.View == pp.View {
 
-		pbft.PBFTCore.Lock.Unlock()
+		ent := pbft.GetEntry(data.EntryID{V: pp.View, N: pp.Seq})
+		pbft.PBFTCore.Mut.Unlock()
 
-		p := &proto.PrepareArgs{
-			View: entry.View,
-			Seq:  entry.Seq,
-			Hash: entry.Hash().ToSlice(),
+		ent.Mut.Lock()
+		if ent.Digest == nil {
+			ent.PP = pp
+			ent.Hash()
+			logger.Printf("digest: %v\n", ent.Digest)
+			p := &proto.PrepareArgs{
+				View:   pp.View,
+				Seq:    pp.Seq,
+				Digest: ent.Digest.ToSlice(),
+			}
+			ent.Mut.Unlock()
+
+			logger.Printf("[B/Prepare]: view: %d, seq: %d\n", pp.View, pp.Seq)
+			pbft.cfg.Prepare(p)
+			dp := p.Proto2P()
+			dp.Sender = pbft.ID
+			pbft.handlePrepare(dp)
+		} else {
+			ent.Mut.Unlock()
+			fmt.Println(`接收到多个具有相同seq的preprepare`)
 		}
 
-		pbft.cfg.Prepare(p)
-		pbft.handlePrepare(p)
 	} else {
-		pbft.PBFTCore.Lock.Unlock()
+		pbft.PBFTCore.Mut.Unlock()
 	}
 }
 
-func (pbft *pbftServer) PrePrepare(ctx context.Context, protoE *proto.PrePrepareArgs) {
-	entry := protoE.PPProto2Entry()
+func (pbft *pbftServer) PrePrepare(ctx context.Context, protoPP *proto.PrePrepareArgs) {
+	dpp := protoPP.Proto2PP()
 	id, err := pbft.getClientID(ctx)
 	if err != nil {
 		logger.Printf("Failed to get client ID: %v", err)
 		return
 	}
-	if uint32(id) == pbft.Leader {
-		pbft.handlePrePrepare(entry)
+	if uint32(id) == pbft.Leader { // 只处理来自leader的preprepare
+		dpp.Sender = pbft.Leader
+		pbft.handlePrePrepare(dpp)
 	}
 }
 
-func (pbft *PBFT) handlePrepare(p *proto.PrepareArgs) {
-	s.lock.Lock()
-}
+func (pbft *PBFT) handlePrepare(p *data.PrepareArgs) {
 
-func (pbft *pbftServer) Prepare(ctx context.Context, p *proto.PrepareArgs) {
-	pbft.handlePrepare(p)
-}
+	pbft.Mut.Lock()
 
-func (pbft *pbftServer) Commit(ctx context.Context, msg *proto.CommitArgs) {
-	qc := msg.FromProto()
-	pbft.OnReceiveNewView(qc)
-}
+	if !pbft.Changing && pbft.View == p.View {
+		ent := pbft.GetEntry(data.EntryID{p.View, p.Seq})
+		pbft.Mut.Unlock()
 
-func (pbft *pbftServer) stopTimer() {
-	if pbft.Change != nil {
-		pbft.Change.Stop()
+		ent.Mut.Lock()
+
+		ent.P = append(ent.P, p)
+		if ent.PP != nil && !ent.SendCommit && pbft.Prepared(ent) {
+
+			c := &proto.CommitArgs{
+				View:   ent.PP.View,
+				Seq:    ent.PP.Seq,
+				Digest: ent.Digest.ToSlice(),
+			}
+
+			ent.SendCommit = true
+
+			logger.Printf("[B/Prepare]: view: %d, seq: %d\n", p.View, p.Seq)
+			pbft.cfg.Commit(c)
+			dc := c.Proto2C()
+			dc.Sender = pbft.ID
+			pbft.handleCommit(dc)
+		}
+		ent.Mut.Unlock()
+	} else {
+		pbft.Mut.Unlock()
 	}
+}
+
+func (pbft *pbftServer) Prepare(ctx context.Context, protoP *proto.PrepareArgs) {
+	dp := protoP.Proto2P()
+	id, err := pbft.getClientID(ctx)
+	if err != nil {
+		logger.Printf("Failed to get client ID: %v", err)
+		return
+	}
+	dp.Sender = uint32(id)
+	pbft.handlePrepare(dp)
+}
+
+func (pbft *PBFT) handleCommit(c *data.CommitArgs) {
+	pbft.Mut.Lock()
+
+	if !pbft.Changing && pbft.View == c.View {
+		ent := pbft.GetEntry(data.EntryID{c.View, c.Seq})
+		pbft.Mut.Unlock()
+
+		ent.Mut.Lock()
+		ent.C = append(ent.C, c)
+		if !ent.Committed && ent.SendCommit && pbft.Committed(ent) {
+			logger.Printf("Committed entry: view: %d, seq: %d\n", ent.PP.View, ent.PP.Seq)
+			ent.Committed = true
+			pbft.Exec <- ent.PP.Commands
+		}
+		ent.Mut.Unlock()
+	} else {
+		pbft.Mut.Unlock()
+	}
+}
+
+func (pbft *pbftServer) Commit(ctx context.Context, protoC *proto.CommitArgs) {
+	dc := protoC.Proto2C()
+	id, err := pbft.getClientID(ctx)
+	if err != nil {
+		logger.Printf("Failed to get client ID: %v", err)
+		return
+	}
+	dc.Sender = uint32(id)
+	pbft.handleCommit(dc)
 }
