@@ -37,13 +37,13 @@ type Entry struct {
 	Digest     *EntryHash
 }
 
-func (e Entry) String() string {
+func (e *Entry) String() string {
 	return fmt.Sprintf("Entry{View: %d, Seq: %d, Committed: %v}",
 		e.PP.View, e.PP.Seq, e.Committed)
 }
 
 // Hash returns a hash digest of the block.
-func (e Entry) Hash() EntryHash {
+func (e *Entry) Hash() EntryHash {
 	// return cached hash if available
 	if e.Digest != nil {
 		return *e.Digest
@@ -68,8 +68,6 @@ func (e Entry) Hash() EntryHash {
 	e.Digest = new(EntryHash)
 	sum := s512.Sum(nil)
 	copy(e.Digest[:], sum)
-
-	fmt.Printf("digest: %v\n", e.Digest)
 
 	return *e.Digest
 }

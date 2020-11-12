@@ -279,7 +279,6 @@ func (pbft *PBFT) handlePrePrepare(pp *data.PrePrepareArgs) {
 		if ent.Digest == nil {
 			ent.PP = pp
 			ent.Hash()
-			logger.Printf("digest: %v\n", ent.Digest)
 			p := &proto.PrepareArgs{
 				View:   pp.View,
 				Seq:    pp.Seq,
