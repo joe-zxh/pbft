@@ -334,14 +334,16 @@ func (pbft *PBFT) handlePrepare(p *data.PrepareArgs) {
 			}
 
 			ent.SendCommit = true
+			ent.Mut.Unlock()
 
-			logger.Printf("[B/Prepare]: view: %d, seq: %d\n", p.View, p.Seq)
+			logger.Printf("[B/Commit]: view: %d, seq: %d\n", p.View, p.Seq)
 			pbft.cfg.Commit(c)
 			dc := c.Proto2C()
 			dc.Sender = pbft.ID
 			pbft.handleCommit(dc)
+		}else{
+			ent.Mut.Unlock()
 		}
-		ent.Mut.Unlock()
 	} else {
 		pbft.Mut.Unlock()
 	}

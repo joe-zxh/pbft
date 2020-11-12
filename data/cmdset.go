@@ -54,7 +54,7 @@ func (s *CommandSet) Remove(cmds ...Command) {
 	}
 }
 
-// 返回n个Command，不够n个返回nil
+// 不移除地 返回n个Command，不够n个返回nil  // hotstuff专用
 func (s *CommandSet) GetExactlyFirst(n int) []Command {
 	if len(s.set) < n {
 		return nil
@@ -83,6 +83,7 @@ func (s *CommandSet) GetExactlyFirst(n int) []Command {
 	return cmds
 }
 
+// 不移除地 返回 最多n个Command // hotstuff专用
 func (s *CommandSet) GetFirst(n int) []Command {
 	s.mut.Lock()
 	defer s.mut.Unlock()
@@ -103,6 +104,72 @@ func (s *CommandSet) GetFirst(n int) []Command {
 			i++
 		}
 		e = e.Next()
+	}
+	return cmds
+}
+
+// 移除 并 返回n个Command，不够n个返回nil
+func (s *CommandSet) RetriveExactlyFirst(n int) []Command {
+	if len(s.set) < n {
+		return nil
+	}
+
+	s.mut.Lock()
+	defer s.mut.Unlock()
+
+	if len(s.set) < n { // 2次判断，第1次为了防止多次加锁，第2次保证一定有n个指令。
+		return nil
+	}
+
+	cmds := make([]Command, 0, n)
+	i := 0
+	cur := s.order.Front()
+	next := cur
+	for i < n {
+		if cur == nil {
+			break
+		}
+		if c := cur.Value.(*cmdElement); !c.proposed {
+			cmds = append(cmds, c.cmd)
+			i++
+			delete(s.set, c.cmd)
+			next = cur.Next()
+			s.order.Remove(cur)
+			cur = next
+		} else {
+			cur = cur.Next()
+		}
+	}
+	return cmds
+}
+
+// 移除 并 返回最多n个Command
+func (s *CommandSet) RetriveFirst(n int) []Command {
+	s.mut.Lock()
+	defer s.mut.Unlock()
+
+	if len(s.set) == 0 {
+		return nil
+	}
+
+	cmds := make([]Command, 0, n)
+	i := 0
+	cur := s.order.Front()
+	next := cur
+	for i < n {
+		if cur == nil {
+			break
+		}
+		if c := cur.Value.(*cmdElement); !c.proposed {
+			cmds = append(cmds, c.cmd)
+			i++
+			delete(s.set, c.cmd)
+			next = cur.Next()
+			s.order.Remove(cur)
+			cur = next
+		} else {
+			cur = cur.Next()
+		}
 	}
 	return cmds
 }

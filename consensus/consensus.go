@@ -76,9 +76,9 @@ func (pbft *PBFTCore) CreateProposal(timeout bool) *data.PrePrepareArgs {
 	var batch []data.Command
 
 	if timeout { // timeout的时候，不管够不够batch都要发起共识。
-		batch = pbft.cmdCache.GetFirst(pbft.Config.BatchSize)
+		batch = pbft.cmdCache.RetriveFirst(pbft.Config.BatchSize)
 	} else {
-		batch = pbft.cmdCache.GetExactlyFirst(pbft.Config.BatchSize)
+		batch = pbft.cmdCache.RetriveExactlyFirst(pbft.Config.BatchSize)
 	}
 
 	if batch == nil {
