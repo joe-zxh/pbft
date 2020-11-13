@@ -378,14 +378,14 @@ func (pbft *PBFT) handleCommit(c *data.CommitArgs) {
 				Pri: int(ent.PP.Seq),
 				C:   ent.PP.Commands,
 			}
+			ent.Mut.Unlock()
+			pbft.Mut.Lock()
+
 			inserted := pbft.ApplyQueue.Insert(elem)
 			if !inserted {
 				panic("Already insert some request with same sequence")
 			}
 
-			ent.Mut.Unlock()
-
-			pbft.Mut.Lock()
 			for i, sz := 0, pbft.ApplyQueue.Length(); i < sz; i++ { // commit需要按global seq的顺序
 				m, err := pbft.ApplyQueue.GetMin()
 				if err != nil {
