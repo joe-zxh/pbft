@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"fmt"
+	"github.com/joe-zxh/pbft/util"
 	"log"
 	"math/big"
 	"net"
@@ -341,7 +342,7 @@ func (pbft *PBFT) handlePrepare(p *data.PrepareArgs) {
 			dc := c.Proto2C()
 			dc.Sender = pbft.ID
 			pbft.handleCommit(dc)
-		}else{
+		} else {
 			ent.Mut.Unlock()
 		}
 	} else {
@@ -372,9 +373,42 @@ func (pbft *PBFT) handleCommit(c *data.CommitArgs) {
 		if !ent.Committed && ent.SendCommit && pbft.Committed(ent) {
 			logger.Printf("Committed entry: view: %d, seq: %d\n", ent.PP.View, ent.PP.Seq)
 			ent.Committed = true
-			pbft.Exec <- ent.PP.Commands
+
+			elem := util.PQElem{
+				Pri: int(ent.PP.Seq),
+				C:   ent.PP.Commands,
+			}
+			inserted := pbft.ApplyQueue.Insert(elem)
+			if !inserted {
+				panic("Already insert some request with same sequence")
+			}
+
+			ent.Mut.Unlock()
+
+			pbft.Mut.Lock()
+			for i, sz := 0, pbft.ApplyQueue.Length(); i < sz; i++ { // commit需要按global seq的顺序
+				m, err := pbft.ApplyQueue.GetMin()
+				if err != nil {
+					break
+				}
+				if int(pbft.Apply+1) == m.Pri {
+					pbft.Apply++
+					cmds, ok := m.C.([]data.Command)
+					if ok {
+						pbft.Exec <- cmds
+					}
+					pbft.ApplyQueue.ExtractMin()
+
+				} else if int(pbft.Apply+1) > m.Pri {
+					panic("This should already done")
+				} else {
+					break
+				}
+			}
+			pbft.Mut.Unlock()
+		} else {
+			ent.Mut.Unlock()
 		}
-		ent.Mut.Unlock()
 	} else {
 		pbft.Mut.Unlock()
 	}

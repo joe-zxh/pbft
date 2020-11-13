@@ -42,7 +42,7 @@ type PBFTCore struct {
 	tSeq       atomic.Uint32           // Total sequence number of next request
 	seqmap     map[data.EntryID]uint32 // Use to map {Cid,CSeq} to global sequence number for all prepared message
 	View       uint32
-	apply      uint32                       // Sequence number of last executed request
+	Apply      uint32                       // Sequence number of last executed request
 	Log        map[data.EntryID]*data.Entry // bycon的log是一个数组，因为需要保证连续，leader可以处理log inconsistency，而pbft不需要。client只有执行完上一条指令后，才会发送下一条请求，所以顺序 并没有问题。
 	cps        map[int]*CheckPoint
 	WaterLow   uint32
@@ -54,7 +54,7 @@ type PBFTCore struct {
 	Change     *time.Timer
 	Changing   bool                // Indicate if this node is changing view
 	state      interface{}         // Deterministic state machine's state
-	applyQueue *util.PriorityQueue // 因为PBFT的特殊性(log是一个map，而不是list)，所以这里需要一个applyQueue。
+	ApplyQueue *util.PriorityQueue // 因为PBFT的特殊性(log是一个map，而不是list)，所以这里需要一个applyQueue。
 	vcs        map[uint32][]*ViewChangeArgs
 	lastcp     uint32
 
@@ -109,7 +109,7 @@ func New(conf *config.ReplicaConfig) *PBFTCore {
 		ID:         uint32(conf.ID),
 		seqmap:     make(map[data.EntryID]uint32),
 		View:       1,
-		apply:      0,
+		Apply:      0,
 		Log:        make(map[data.EntryID]*data.Entry),
 		cps:        make(map[int]*CheckPoint),
 		WaterLow:   0,
@@ -120,7 +120,7 @@ func New(conf *config.ReplicaConfig) *PBFTCore {
 		Change:     nil,
 		Changing:   false,
 		state:      make([]interface{}, 1),
-		applyQueue: util.NewPriorityQueue(),
+		ApplyQueue: util.NewPriorityQueue(),
 		vcs:        make(map[uint32][]*ViewChangeArgs),
 		lastcp:     0,
 	}
