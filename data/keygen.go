@@ -37,7 +37,7 @@ func GenerateTLSCert(hosts []string, privateKey *ecdsa.PrivateKey) (cert []byte,
 	caTmpl := &x509.Certificate{
 		SerialNumber: sn,
 		Subject: pkix.Name{
-			CommonName: "HotStuff Self-Signed Certificate",
+			CommonName: "PBFT Self-Signed Certificate",
 		},
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().AddDate(10, 0, 0),

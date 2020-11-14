@@ -258,10 +258,10 @@ func main() {
 	replicaConfig.ClusterSize = len(replicaConfig.Replicas)
 	replicaConfig.QuorumSize = len(replicaConfig.Replicas) - (len(replicaConfig.Replicas)-1)/3
 
-	srv := newHotStuffServer(&conf, replicaConfig)
+	srv := newPBFTServer(&conf, replicaConfig)
 	err = srv.Start(clientAddress)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to start HotStuff: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Failed to start: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -303,7 +303,7 @@ type pbftServer struct {
 	pldatas      map[int32]([]byte)
 }
 
-func newHotStuffServer(conf *options, replicaConfig *config.ReplicaConfig) *pbftServer {
+func newPBFTServer(conf *options, replicaConfig *config.ReplicaConfig) *pbftServer {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	serverOpts := []client.ServerOption{}

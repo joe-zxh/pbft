@@ -48,7 +48,7 @@ type PBFT struct {
 	connectTimeout time.Duration
 }
 
-//New creates a new GorumsHotStuff backend object.
+//New creates a new backend object.
 func New(conf *config.ReplicaConfig, tls bool, connectTimeout, qcTimeout time.Duration) *PBFT {
 	pbft := &PBFT{
 		PBFTCore:       consensus.New(conf),
@@ -153,7 +153,7 @@ func (pbft *PBFT) startServer(port string) error {
 	serverOpts = append(serverOpts, proto.WithGRPCServerOptions(grpcServerOpts...))
 
 	pbft.server = newPBFTServer(pbft, proto.NewGorumsServer(serverOpts...))
-	pbft.server.RegisterHotstuffServer(pbft.server)
+	pbft.server.RegisterPBFTServer(pbft.server)
 
 	go pbft.server.Serve(lis)
 	return nil

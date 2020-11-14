@@ -8,7 +8,6 @@ import (
 	"sync"
 )
 
-// Command is the client data that is processed by HotStuff
 type Command string
 
 // BlockHash represents a SHA256 hashsum of a Block

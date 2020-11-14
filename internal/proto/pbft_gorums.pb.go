@@ -1319,18 +1319,18 @@ func (n *Node) closeStream() (err error) {
 	return err
 }
 
-// QuorumSpec is the interface of quorum functions for Hotstuff.
+// QuorumSpec is the interface of quorum functions for PBFT.
 type QuorumSpec interface {
 }
 
-// Hotstuff is the server-side API for the Hotstuff Service
-type Hotstuff interface {
+// PBFT is the server-side API for the PBFT Service
+type PBFT interface {
 	PrePrepare(context.Context, *PrePrepareArgs)
 	Prepare(context.Context, *PrepareArgs)
 	Commit(context.Context, *CommitArgs)
 }
 
-func (s *GorumsServer) RegisterHotstuffServer(srv Hotstuff) {
+func (s *GorumsServer) RegisterPBFTServer(srv PBFT) {
 	s.srv.handlers[prePrepareMethodID] = func(ctx context.Context, in *gorumsMessage, _ chan<- *gorumsMessage) {
 		req := in.message.(*PrePrepareArgs)
 		srv.PrePrepare(ctx, req)

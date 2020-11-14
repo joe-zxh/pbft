@@ -32,7 +32,7 @@ type PBFTCore struct {
 
 	cmdCache *data.CommandSet // Contains the commands that are waiting to be proposed
 	Config   *config.ReplicaConfig
-	cancel   context.CancelFunc // stops any goroutines started by HotStuff
+	cancel   context.CancelFunc // stops goroutines
 
 	Exec chan []data.Command
 
@@ -99,7 +99,7 @@ func New(conf *config.ReplicaConfig) *PBFTCore {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	pbft := &PBFTCore{
-		// hotstuff
+		// from hotstuff
 		Config:   conf,
 		cancel:   cancel,
 		cmdCache: data.NewCommandSet(),
@@ -148,7 +148,6 @@ func (pbft *PBFTCore) proposeConstantly(ctx context.Context) {
 	}
 }
 
-// Close frees resources held by HotStuff and closes backend connections
 func (pbft *PBFTCore) Close() {
 	pbft.cancel()
 }
