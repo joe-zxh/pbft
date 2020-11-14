@@ -58,9 +58,6 @@ func (e *Entry) Hash() EntryHash {
 	binary.LittleEndian.PutUint32(byte4, uint32(e.PP.Seq))
 	s512.Write(byte4[:])
 
-	binary.LittleEndian.PutUint32(byte4, uint32(e.PP.Sender))
-	s512.Write(byte4[:])
-
 	for _, cmd := range e.PP.Commands {
 		s512.Write([]byte(cmd))
 	}

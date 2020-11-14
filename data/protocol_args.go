@@ -4,7 +4,6 @@ type PrePrepareArgs struct {
 	View     uint32
 	Seq      uint32
 	Commands []Command
-	Sender   uint32
 }
 
 type PrepareArgs struct {
