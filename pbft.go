@@ -373,7 +373,7 @@ func (pbft *PBFT) handleCommit(c *data.CommitArgs) {
 			ent.Committed = true
 
 			elem := util.PQElem{
-				Pri: int(ent.PP.Seq),
+				Pri: int(ent.PP.Seq), // ent.SendCommit保证了ent.PP不为空
 				C:   ent.PP.Commands,
 			}
 			ent.Mut.Unlock()
