@@ -253,7 +253,7 @@ func main() {
 		replicaConfig.Replicas[r.ID] = info
 	}
 	replicaConfig.ClusterSize = len(replicaConfig.Replicas)
-	replicaConfig.QuorumSize = len(replicaConfig.Replicas) - (len(replicaConfig.Replicas)-1)/3
+	replicaConfig.QuorumSize = 2*((len(replicaConfig.Replicas)-1)/3)+1 // pbft: 2f+1
 
 	srv := newPBFTServer(&conf, replicaConfig)
 	err = srv.Start(clientAddress)
