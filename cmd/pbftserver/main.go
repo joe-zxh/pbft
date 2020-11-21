@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
-	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
@@ -171,12 +170,10 @@ func main() {
 
 	log.Printf("replica %d starts", conf.SelfID)
 
-	if conf.SelfID == 1 {
-		go func() {
-			err := http.ListenAndServe("127.0.0.1:6060", nil)
-			fmt.Printf("start http listen: %v\n", err)
-		}()
-	}
+	//go func() {
+	//	err := http.ListenAndServe(fmt.Sprintf("127.0.0.1:%d", 6060+conf.SelfID), nil)
+	//	fmt.Printf("start http listen: %v\n", err)
+	//}()
 
 	privkey, err := data.ReadPrivateKeyFile(conf.Privkey)
 	if err != nil {
