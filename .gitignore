@@ -3,6 +3,8 @@ profileCPU/
 profileMem/
 
 # Binaries for programs and plugins
+pbftclient
+pbftserver
 *.exe
 *.exe~
 *.dll
