@@ -93,6 +93,7 @@ func main() {
 	pflag.Bool("tls", false, "Enable TLS")
 	pflag.String("client-listen", "", "Override the listen address for the client server")
 	pflag.String("peer-listen", "", "Override the listen address for the replica (peer) server")
+	clusterSize := pflag.Int("cluster-size", 4, "specify the size of the cluster")
 	pflag.Parse()
 
 	if *help {
@@ -214,6 +215,13 @@ func main() {
 
 	replicaConfig := config.NewConfig(conf.SelfID, privkey, cert)
 	replicaConfig.BatchSize = conf.BatchSize
+
+	if *clusterSize > len(conf.Replicas){
+		panic("cluster size too large, you do not have enough replica configuration in the toml file")
+	}else{
+		conf.Replicas = conf.Replicas[:*clusterSize]
+	}
+
 	for _, r := range conf.Replicas {
 		key, err := data.ReadPublicKeyFile(r.Pubkey)
 		if err != nil {
@@ -253,7 +261,7 @@ func main() {
 		replicaConfig.Replicas[r.ID] = info
 	}
 	replicaConfig.ClusterSize = len(replicaConfig.Replicas)
-	replicaConfig.QuorumSize = 2*((len(replicaConfig.Replicas)-1)/3)+1 // pbft: 2f+1
+	replicaConfig.QuorumSize = 2*((len(replicaConfig.Replicas)-1)/3) + 1 // pbft: 2f+1
 
 	srv := newPBFTServer(&conf, replicaConfig)
 	err = srv.Start(clientAddress)

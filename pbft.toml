@@ -31,3 +31,340 @@ peer-address = "127.0.0.1:13374"
 client-address = "127.0.0.1:23374"
 pubkey = "keys/r4.key.pub"
 cert = "keys/r4.crt"
+
+[[replicas]]
+id = 5
+peer-address = "127.0.0.1:13375"
+client-address = "127.0.0.1:23375"
+pubkey = "keys/r5.key.pub"
+cert = "keys/r5.crt"
+
+[[replicas]]
+id = 6
+peer-address = "127.0.0.1:13376"
+client-address = "127.0.0.1:23376"
+pubkey = "keys/r6.key.pub"
+cert = "keys/r6.crt"
+
+[[replicas]]
+id = 7
+peer-address = "127.0.0.1:13377"
+client-address = "127.0.0.1:23377"
+pubkey = "keys/r7.key.pub"
+cert = "keys/r7.crt"
+
+[[replicas]]
+id = 8
+peer-address = "127.0.0.1:13378"
+client-address = "127.0.0.1:23378"
+pubkey = "keys/r8.key.pub"
+cert = "keys/r8.crt"
+
+[[replicas]]
+id = 9
+peer-address = "127.0.0.1:13379"
+client-address = "127.0.0.1:23379"
+pubkey = "keys/r9.key.pub"
+cert = "keys/r9.crt"
+
+[[replicas]]
+id = 10
+peer-address = "127.0.0.1:13380"
+client-address = "127.0.0.1:23380"
+pubkey = "keys/r10.key.pub"
+cert = "keys/r10.crt"
+
+[[replicas]]
+id = 11
+peer-address = "127.0.0.1:13381"
+client-address = "127.0.0.1:23381"
+pubkey = "keys/r11.key.pub"
+cert = "keys/r11.crt"
+
+[[replicas]]
+id = 12
+peer-address = "127.0.0.1:13382"
+client-address = "127.0.0.1:23382"
+pubkey = "keys/r12.key.pub"
+cert = "keys/r12.crt"
+
+[[replicas]]
+id = 13
+peer-address = "127.0.0.1:13383"
+client-address = "127.0.0.1:23383"
+pubkey = "keys/r13.key.pub"
+cert = "keys/r13.crt"
+
+[[replicas]]
+id = 14
+peer-address = "127.0.0.1:13384"
+client-address = "127.0.0.1:23384"
+pubkey = "keys/r14.key.pub"
+cert = "keys/r14.crt"
+
+[[replicas]]
+id = 15
+peer-address = "127.0.0.1:13385"
+client-address = "127.0.0.1:23385"
+pubkey = "keys/r15.key.pub"
+cert = "keys/r15.crt"
+
+[[replicas]]
+id = 16
+peer-address = "127.0.0.1:13386"
+client-address = "127.0.0.1:23386"
+pubkey = "keys/r16.key.pub"
+cert = "keys/r16.crt"
+
+[[replicas]]
+id = 17
+peer-address = "127.0.0.1:13387"
+client-address = "127.0.0.1:23387"
+pubkey = "keys/r17.key.pub"
+cert = "keys/r17.crt"
+
+[[replicas]]
+id = 18
+peer-address = "127.0.0.1:13388"
+client-address = "127.0.0.1:23388"
+pubkey = "keys/r18.key.pub"
+cert = "keys/r18.crt"
+
+[[replicas]]
+id = 19
+peer-address = "127.0.0.1:13389"
+client-address = "127.0.0.1:23389"
+pubkey = "keys/r19.key.pub"
+cert = "keys/r19.crt"
+
+[[replicas]]
+id = 20
+peer-address = "127.0.0.1:13390"
+client-address = "127.0.0.1:23390"
+pubkey = "keys/r20.key.pub"
+cert = "keys/r20.crt"
+
+[[replicas]]
+id = 21
+peer-address = "127.0.0.1:13391"
+client-address = "127.0.0.1:23391"
+pubkey = "keys/r21.key.pub"
+cert = "keys/r21.crt"
+
+[[replicas]]
+id = 22
+peer-address = "127.0.0.1:13392"
+client-address = "127.0.0.1:23392"
+pubkey = "keys/r22.key.pub"
+cert = "keys/r22.crt"
+
+[[replicas]]
+id = 23
+peer-address = "127.0.0.1:13393"
+client-address = "127.0.0.1:23393"
+pubkey = "keys/r23.key.pub"
+cert = "keys/r23.crt"
+
+[[replicas]]
+id = 24
+peer-address = "127.0.0.1:13394"
+client-address = "127.0.0.1:23394"
+pubkey = "keys/r24.key.pub"
+cert = "keys/r24.crt"
+
+[[replicas]]
+id = 25
+peer-address = "127.0.0.1:13395"
+client-address = "127.0.0.1:23395"
+pubkey = "keys/r25.key.pub"
+cert = "keys/r25.crt"
+
+[[replicas]]
+id = 26
+peer-address = "127.0.0.1:13396"
+client-address = "127.0.0.1:23396"
+pubkey = "keys/r26.key.pub"
+cert = "keys/r26.crt"
+
+[[replicas]]
+id = 27
+peer-address = "127.0.0.1:13397"
+client-address = "127.0.0.1:23397"
+pubkey = "keys/r27.key.pub"
+cert = "keys/r27.crt"
+
+[[replicas]]
+id = 28
+peer-address = "127.0.0.1:13398"
+client-address = "127.0.0.1:23398"
+pubkey = "keys/r28.key.pub"
+cert = "keys/r28.crt"
+
+[[replicas]]
+id = 29
+peer-address = "127.0.0.1:13399"
+client-address = "127.0.0.1:23399"
+pubkey = "keys/r29.key.pub"
+cert = "keys/r29.crt"
+
+[[replicas]]
+id = 30
+peer-address = "127.0.0.1:13400"
+client-address = "127.0.0.1:23400"
+pubkey = "keys/r30.key.pub"
+cert = "keys/r30.crt"
+
+[[replicas]]
+id = 31
+peer-address = "127.0.0.1:13401"
+client-address = "127.0.0.1:23401"
+pubkey = "keys/r31.key.pub"
+cert = "keys/r31.crt"
+
+[[replicas]]
+id = 32
+peer-address = "127.0.0.1:13402"
+client-address = "127.0.0.1:23402"
+pubkey = "keys/r32.key.pub"
+cert = "keys/r32.crt"
+
+[[replicas]]
+id = 33
+peer-address = "127.0.0.1:13403"
+client-address = "127.0.0.1:23403"
+pubkey = "keys/r33.key.pub"
+cert = "keys/r33.crt"
+
+[[replicas]]
+id = 34
+peer-address = "127.0.0.1:13404"
+client-address = "127.0.0.1:23404"
+pubkey = "keys/r34.key.pub"
+cert = "keys/r34.crt"
+
+[[replicas]]
+id = 35
+peer-address = "127.0.0.1:13405"
+client-address = "127.0.0.1:23405"
+pubkey = "keys/r35.key.pub"
+cert = "keys/r35.crt"
+
+[[replicas]]
+id = 36
+peer-address = "127.0.0.1:13406"
+client-address = "127.0.0.1:23406"
+pubkey = "keys/r36.key.pub"
+cert = "keys/r36.crt"
+
+[[replicas]]
+id = 37
+peer-address = "127.0.0.1:13407"
+client-address = "127.0.0.1:23407"
+pubkey = "keys/r37.key.pub"
+cert = "keys/r37.crt"
+
+[[replicas]]
+id = 38
+peer-address = "127.0.0.1:13408"
+client-address = "127.0.0.1:23408"
+pubkey = "keys/r38.key.pub"
+cert = "keys/r38.crt"
+
+[[replicas]]
+id = 39
+peer-address = "127.0.0.1:13409"
+client-address = "127.0.0.1:23409"
+pubkey = "keys/r39.key.pub"
+cert = "keys/r39.crt"
+
+[[replicas]]
+id = 40
+peer-address = "127.0.0.1:13410"
+client-address = "127.0.0.1:23410"
+pubkey = "keys/r40.key.pub"
+cert = "keys/r40.crt"
+
+[[replicas]]
+id = 41
+peer-address = "127.0.0.1:13411"
+client-address = "127.0.0.1:23411"
+pubkey = "keys/r41.key.pub"
+cert = "keys/r41.crt"
+
+[[replicas]]
+id = 42
+peer-address = "127.0.0.1:13412"
+client-address = "127.0.0.1:23412"
+pubkey = "keys/r42.key.pub"
+cert = "keys/r42.crt"
+
+[[replicas]]
+id = 43
+peer-address = "127.0.0.1:13413"
+client-address = "127.0.0.1:23413"
+pubkey = "keys/r43.key.pub"
+cert = "keys/r43.crt"
+
+[[replicas]]
+id = 44
+peer-address = "127.0.0.1:13414"
+client-address = "127.0.0.1:23414"
+pubkey = "keys/r44.key.pub"
+cert = "keys/r44.crt"
+
+[[replicas]]
+id = 45
+peer-address = "127.0.0.1:13415"
+client-address = "127.0.0.1:23415"
+pubkey = "keys/r45.key.pub"
+cert = "keys/r45.crt"
+
+[[replicas]]
+id = 46
+peer-address = "127.0.0.1:13416"
+client-address = "127.0.0.1:23416"
+pubkey = "keys/r46.key.pub"
+cert = "keys/r46.crt"
+
+[[replicas]]
+id = 47
+peer-address = "127.0.0.1:13417"
+client-address = "127.0.0.1:23417"
+pubkey = "keys/r47.key.pub"
+cert = "keys/r47.crt"
+
+[[replicas]]
+id = 48
+peer-address = "127.0.0.1:13418"
+client-address = "127.0.0.1:23418"
+pubkey = "keys/r48.key.pub"
+cert = "keys/r48.crt"
+
+[[replicas]]
+id = 49
+peer-address = "127.0.0.1:13419"
+client-address = "127.0.0.1:23419"
+pubkey = "keys/r49.key.pub"
+cert = "keys/r49.crt"
+
+[[replicas]]
+id = 50
+peer-address = "127.0.0.1:13420"
+client-address = "127.0.0.1:23420"
+pubkey = "keys/r50.key.pub"
+cert = "keys/r50.crt"
+
+[[replicas]]
+id = 51
+peer-address = "127.0.0.1:13421"
+client-address = "127.0.0.1:23421"
+pubkey = "keys/r51.key.pub"
+cert = "keys/r51.crt"
+
+[[replicas]]
+id = 52
+peer-address = "127.0.0.1:13422"
+client-address = "127.0.0.1:23422"
+pubkey = "keys/r52.key.pub"
+cert = "keys/r52.crt"
+

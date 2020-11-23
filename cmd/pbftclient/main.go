@@ -74,6 +74,7 @@ func main() {
 	pflag.Bool("benchmark", false, "If enabled, a BenchmarkData protobuf will be written to stdout.")
 	pflag.Int("exit-after", 0, "Number of seconds after which the program should exit.")
 	pflag.Bool("tls", false, "Enable TLS")
+	clusterSize := pflag.Int("cluster-size", 4, "specify the size of the cluster")
 	pflag.Parse()
 
 	if *help {
@@ -109,6 +110,12 @@ func main() {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to unmarshal config: %v\n", err)
 		os.Exit(1)
+	}
+
+	if *clusterSize > len(conf.Replicas){
+		panic("cluster size too large, you do not have enough replica configuration in the toml file")
+	}else{
+		conf.Replicas = conf.Replicas[:*clusterSize]
 	}
 
 	replicaConfig := config.NewConfig(0, nil, nil)
