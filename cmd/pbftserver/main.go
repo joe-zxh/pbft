@@ -271,7 +271,7 @@ func main() {
 	}
 
 	<-signals
-	fmt.Fprintf(os.Stderr, "Exiting...\n")
+	log.Println("Exiting...")
 	srv.Stop()
 
 	if *memprofile != "" {

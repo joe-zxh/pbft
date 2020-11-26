@@ -154,11 +154,11 @@ func main() {
 			select {
 			case <-time.After(time.Duration(conf.ExitAfter) * time.Second):
 			case <-signals:
-				fmt.Fprintf(os.Stderr, "Exiting...\n")
+				log.Println("Exiting...")
 			}
 		} else {
 			<-signals
-			fmt.Fprintf(os.Stderr, "Exiting...\n")
+			log.Println("Exiting...")
 		}
 		cancel()
 	}()
