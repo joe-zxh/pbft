@@ -424,7 +424,7 @@ func (pbft *pbftServer) Commit(ctx context.Context, protoC *proto.CommitArgs) {
 }
 
 // view change...
-func (pbft *pbftServer) startViewChange() {
+func (pbft *PBFT) StartViewChange() {
 	pbft.Mut.Lock()
 	logger.Printf("StartViewChange: \n")
 	vcArgs := pbft.GenerateViewChange()
@@ -512,7 +512,7 @@ func (pbft *pbftServer) NewView(ctx context.Context, protoNV *proto.NewViewArgs)
 	pbft.EnteringNewView(args, mins, maxs, pps)
 }
 
-func (pbft *pbftServer) EnteringNewView(nvArgs *data.NewViewArgs, mins uint32, maxs uint32, pps []*data.PrePrepareArgs) []*data.PrepareArgs {
+func (pbft *PBFT) EnteringNewView(nvArgs *data.NewViewArgs, mins uint32, maxs uint32, pps []*data.PrePrepareArgs) []*data.PrepareArgs {
 	logger.Printf("EnterNextView:%v\n", nvArgs.View)
 
 	scp := pbft.GetStableCheckPoint()
@@ -545,6 +545,7 @@ func (pbft *pbftServer) EnteringNewView(nvArgs *data.NewViewArgs, mins uint32, m
 	pbft.RemoveOldViewChange(nvArgs.View)
 
 	// 回消息给client...
+	pbft.ViewChangeChan <- struct{}{}
 
 	go func() {
 		pbft.Mut.Lock()

@@ -216,9 +216,9 @@ func main() {
 	replicaConfig := config.NewConfig(conf.SelfID, privkey, cert)
 	replicaConfig.BatchSize = conf.BatchSize
 
-	if *clusterSize > len(conf.Replicas){
+	if *clusterSize > len(conf.Replicas) {
 		panic("cluster size too large, you do not have enough replica configuration in the toml file")
-	}else{
+	} else {
 		conf.Replicas = conf.Replicas[:*clusterSize]
 	}
 
@@ -417,6 +417,16 @@ func (srv *pbftServer) ExecCommand(_ context.Context, cmd *client.Command, out f
 		// send response
 		out(&client.Empty{}, nil)
 	}(id, finished)
+}
+
+func (srv *pbftServer) AskViewChange(_ context.Context, emt *client.Empty, out func(*client.Empty, error)) {
+	srv.pbft.StartViewChange()
+
+	<-srv.pbft.ViewChangeChan
+
+	// send response
+	log.Printf("view change finish!\n")
+	out(&client.Empty{}, nil)
 }
 
 func (srv *pbftServer) onExec() {

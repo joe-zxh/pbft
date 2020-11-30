@@ -1337,6 +1337,80 @@ func (c *Configuration) execCommandRecv(ctx context.Context, in *Command, msgID 
 	}
 }
 
+// AskViewChange asynchronously invokes a quorum call on configuration c
+// and returns a FutureEmpty, which can be used to inspect the quorum call
+// reply and error when available.
+func (c *Configuration) AskViewChange(ctx context.Context, in *Empty) *FutureEmpty {
+	fut := &FutureEmpty{
+		NodeIDs: make([]uint32, 0, c.n),
+		c:       make(chan struct{}, 1),
+	}
+	// get the ID which will be used to return the correct responses for a request
+	msgID := c.mgr.nextMsgID()
+
+	// set up a channel to collect replies
+	replyChan := make(chan *orderingResult, c.n)
+	c.mgr.putChan(msgID, replyChan)
+
+	expected := c.n
+
+	metadata := &ordering.Metadata{
+		MessageID: msgID,
+		MethodID:  askViewChangeMethodID,
+	}
+	msg := &gorumsMessage{metadata: metadata, message: in}
+
+	// push the message to the nodes
+	for _, n := range c.nodes {
+		n.sendQ <- msg
+	}
+
+	go c.askViewChangeRecv(ctx, in, msgID, expected, replyChan, fut)
+
+	return fut
+}
+
+func (c *Configuration) askViewChangeRecv(ctx context.Context, in *Empty, msgID uint64, expected int, replyChan chan *orderingResult, fut *FutureEmpty) {
+	defer close(fut.c)
+
+	if fut.err != nil {
+		return
+	}
+
+	defer c.mgr.deleteChan(msgID)
+
+	var (
+		reply   *Empty
+		errs    []GRPCError
+		quorum  bool
+		replies = make(map[uint32]*Empty, 2*c.n)
+	)
+
+	for {
+		select {
+		case r := <-replyChan:
+			fut.NodeIDs = append(fut.NodeIDs, r.nid)
+			if r.err != nil {
+				errs = append(errs, GRPCError{r.nid, r.err})
+				break
+			}
+			data := r.reply.(*Empty)
+			replies[r.nid] = data
+			if reply, quorum = c.qspec.AskViewChangeQF(in, replies); quorum {
+				fut.Empty, fut.err = reply, nil
+				return
+			}
+		case <-ctx.Done():
+			fut.Empty, fut.err = reply, QuorumCallError{ctx.Err().Error(), len(replies), errs}
+			return
+		}
+		if len(errs)+len(replies) == expected {
+			fut.Empty, fut.err = reply, QuorumCallError{"incomplete call", len(replies), errs}
+			return
+		}
+	}
+}
+
 // QuorumSpec is the interface of quorum functions for Client.
 type QuorumSpec interface {
 
@@ -1346,11 +1420,19 @@ type QuorumSpec interface {
 	// be used by the quorum function. If the in parameter is not needed
 	// you should implement your quorum function with '_ *Command'.
 	ExecCommandQF(in *Command, replies map[uint32]*Empty) (*Empty, bool)
+
+	// AskViewChangeQF is the quorum function for the AskViewChange
+	// asynchronous ordered quorum call method. The in parameter is the request object
+	// supplied to the AskViewChange method at call time, and may or may not
+	// be used by the quorum function. If the in parameter is not needed
+	// you should implement your quorum function with '_ *Empty'.
+	AskViewChangeQF(in *Empty, replies map[uint32]*Empty) (*Empty, bool)
 }
 
 // Client is the server-side API for the Client Service
 type Client interface {
 	ExecCommand(context.Context, *Command, func(*Empty, error))
+	AskViewChange(context.Context, *Empty, func(*Empty, error))
 }
 
 func (s *GorumsServer) RegisterClientServer(srv Client) {
@@ -1364,15 +1446,27 @@ func (s *GorumsServer) RegisterClientServer(srv Client) {
 		}
 		srv.ExecCommand(ctx, req, f)
 	}
+	s.srv.handlers[askViewChangeMethodID] = func(ctx context.Context, in *gorumsMessage, finished chan<- *gorumsMessage) {
+		req := in.message.(*Empty)
+		once := new(sync.Once)
+		f := func(resp *Empty, err error) {
+			once.Do(func() {
+				finished <- wrapMessage(in.metadata, resp, err)
+			})
+		}
+		srv.AskViewChange(ctx, req, f)
+	}
 }
 
 const hasOrderingMethods = true
 
 const execCommandMethodID int32 = 0
+const askViewChangeMethodID int32 = 1
 
 var orderingMethods = map[int32]methodInfo{
 
 	0: {requestType: new(Command).ProtoReflect(), responseType: new(Empty).ProtoReflect()},
+	1: {requestType: new(Empty).ProtoReflect(), responseType: new(Empty).ProtoReflect()},
 }
 
 type internalEmpty struct {

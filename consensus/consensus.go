@@ -59,6 +59,8 @@ type PBFTCore struct {
 
 	Leader   uint32 // view改变的时候，再改变
 	IsLeader bool   // view改变的时候，再改变
+
+	ViewChangeChan chan struct{}
 }
 
 func (pbft *PBFTCore) AddCommand(command data.Command) {
@@ -121,6 +123,8 @@ func New(conf *config.ReplicaConfig) *PBFTCore {
 		ApplyQueue: util.NewPriorityQueue(),
 		VCs:        make(map[uint32][]*data.ViewChangeArgs),
 		lastcp:     0,
+
+		ViewChangeChan: make(chan struct{}, 1),
 	}
 	pbft.q = pbft.F*2 + 1
 	pbft.Leader = (pbft.View-1)%pbft.N + 1

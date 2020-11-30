@@ -221,6 +221,9 @@ func (q *qspec) ExecCommandQF(_ *client.Command, signatures map[uint32]*client.E
 }
 
 func (q *qspec) AskViewChangeQF(_ *client.Empty, signatures map[uint32]*client.Empty) (*client.Empty, bool) {
+	if len(signatures) < q.faulty+1 {
+		return nil, false
+	}
 	return &client.Empty{}, true
 }
 
