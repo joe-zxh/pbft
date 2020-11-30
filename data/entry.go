@@ -67,3 +67,16 @@ func (e *Entry) Hash() EntryHash {
 
 	return *e.Digest
 }
+
+func CommandsEqual(cmds1 []Command, cmds2 []Command) bool {
+	if len(cmds1) != len(cmds2) {
+		return false
+	}
+
+	for i, cmd := range cmds1 {
+		if cmd != cmds2[i] {
+			return false
+		}
+	}
+	return true
+}

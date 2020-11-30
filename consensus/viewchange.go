@@ -1,61 +1,68 @@
 package consensus
 
 import (
-	"github.com/joe-zxh/pbft/internal/proto"
-	"sync"
+	"github.com/joe-zxh/pbft/data"
 )
 
-// Pm is use to hold a preprepare message and at least 2f corresponding prepare message
-type Pm struct {
-	PP *proto.PrePrepareArgs
-	P  []*proto.PrepareArgs
-}
-
-// ViewChangeArgs is the argument for RPC handler PBFTServer.ViewChange
-type ViewChangeArgs struct {
-	View int
-	CP   *CheckPoint
-	P    []*Pm
-	Rid  int
-}
-
-// CheckPoint is the reply of FetchCheckPoint, signature is only set when it transmit by RPC
-type CheckPoint struct {
-	// lock is unexported, to avoid gob encode this value
-	lock   sync.Mutex
-	Seq    int
-	Stable bool
-	State  interface{}
-	Proof  []*CheckPointArgs
-	// Signature
-}
-
-// CheckPointArgs is the argument for RPC handler PBFTServer.CheckPoint
-type CheckPointArgs struct {
-	Seq    int
-	Digest string
-	Rid    int
-}
-
 // Should lock s.lock before call this function
-// When the checkpoint didn't exist then, it must been deleted or it's a new checkpoint
-// so this function will also check the hold checkpoint, if there is any checkpoint newer than
-// it, it will return nil
-func (pbft *PBFTCore) getCheckPoint(seq int) *CheckPoint {
-	_, ok := pbft.cps[seq]
+func (pbft *PBFTCore) getCheckPoint(seq uint32) *data.CheckPoint {
+	_, ok := pbft.CPs[seq]
 	if !ok {
-		for k, v := range pbft.cps {
+		for k, v := range pbft.CPs {
 			if k > seq && v.Stable {
 				return nil
 			}
 		}
 
-		pbft.cps[seq] = &CheckPoint{
-			Seq:    seq,
+		pbft.CPs[seq] = &data.CheckPoint{
+			Seq:    uint32(seq),
 			Stable: false,
 			State:  nil,
-			Proof:  make([]*CheckPointArgs, 0),
+			Proof:  make([]*data.CheckPointArgs, 0),
 		}
 	}
-	return pbft.cps[seq]
+
+	if seq == 0 { // 为了view change的实验，第一个checkpoint，我们给他构造2f+1proof的数据。
+		var proof data.CheckPointArgs
+		for i := 0; i < 2*int(pbft.F)+1; i++ {
+			pbft.CPs[seq].Proof = append(pbft.CPs[seq].Proof, &proof)
+		}
+	}
+
+	return pbft.CPs[seq]
+}
+
+func (s *PBFTCore) GetStableCheckPoint() *data.CheckPoint {
+	for _, v := range s.CPs {
+		if v.Stable {
+			return v
+		}
+	}
+	panic("No stable checkpoint")
+}
+
+// Should lock s.lock before call this function
+func (s *PBFTCore) GenerateViewChange() *data.ViewChangeArgs {
+	s.Changing = true
+	cp := s.GetStableCheckPoint()
+
+	vcArgs := data.ViewChangeArgs{
+		View: s.View + 1,
+		Rid:  s.ID,
+		CP:   cp,
+	}
+
+	log := s.Log
+
+	for k, v := range log {
+		if k.N > cp.Seq && v.PP != nil && (v.SendCommit || s.Prepared(v)) {
+			pm := data.Pm{
+				PP: v.PP,
+				P:  v.P,
+			}
+			vcArgs.P = append(vcArgs.P, &pm)
+		}
+	}
+
+	return &vcArgs
 }

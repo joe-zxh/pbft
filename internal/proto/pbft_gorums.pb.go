@@ -1307,6 +1307,42 @@ func (c *Configuration) Commit(in *CommitArgs) error {
 	return nil
 }
 
+// Reference imports to suppress errors if they are not otherwise used.
+var _ empty.Empty
+
+// ViewChange is a one-way multicast call on all nodes in configuration c,
+// with the same in argument. The call is asynchronous and has no return value.
+func (c *Configuration) ViewChange(in *ViewChangeArgs) error {
+	msgID := c.mgr.nextMsgID()
+	metadata := &ordering.Metadata{
+		MessageID: msgID,
+		MethodID:  viewChangeMethodID,
+	}
+	msg := &gorumsMessage{metadata: metadata, message: in}
+	for _, n := range c.nodes {
+		n.sendQ <- msg
+	}
+	return nil
+}
+
+// Reference imports to suppress errors if they are not otherwise used.
+var _ empty.Empty
+
+// NewView is a one-way multicast call on all nodes in configuration c,
+// with the same in argument. The call is asynchronous and has no return value.
+func (c *Configuration) NewView(in *NewViewArgs) error {
+	msgID := c.mgr.nextMsgID()
+	metadata := &ordering.Metadata{
+		MessageID: msgID,
+		MethodID:  newViewMethodID,
+	}
+	msg := &gorumsMessage{metadata: metadata, message: in}
+	for _, n := range c.nodes {
+		n.sendQ <- msg
+	}
+	return nil
+}
+
 type nodeServices struct {
 }
 
@@ -1328,6 +1364,8 @@ type PBFT interface {
 	PrePrepare(context.Context, *PrePrepareArgs)
 	Prepare(context.Context, *PrepareArgs)
 	Commit(context.Context, *CommitArgs)
+	ViewChange(context.Context, *ViewChangeArgs)
+	NewView(context.Context, *NewViewArgs)
 }
 
 func (s *GorumsServer) RegisterPBFTServer(srv PBFT) {
@@ -1343,6 +1381,14 @@ func (s *GorumsServer) RegisterPBFTServer(srv PBFT) {
 		req := in.message.(*CommitArgs)
 		srv.Commit(ctx, req)
 	}
+	s.srv.handlers[viewChangeMethodID] = func(ctx context.Context, in *gorumsMessage, _ chan<- *gorumsMessage) {
+		req := in.message.(*ViewChangeArgs)
+		srv.ViewChange(ctx, req)
+	}
+	s.srv.handlers[newViewMethodID] = func(ctx context.Context, in *gorumsMessage, _ chan<- *gorumsMessage) {
+		req := in.message.(*NewViewArgs)
+		srv.NewView(ctx, req)
+	}
 }
 
 const hasOrderingMethods = true
@@ -1350,10 +1396,14 @@ const hasOrderingMethods = true
 const prePrepareMethodID int32 = 0
 const prepareMethodID int32 = 1
 const commitMethodID int32 = 2
+const viewChangeMethodID int32 = 3
+const newViewMethodID int32 = 4
 
 var orderingMethods = map[int32]methodInfo{
 
 	0: {requestType: new(PrePrepareArgs).ProtoReflect(), responseType: new(empty.Empty).ProtoReflect()},
 	1: {requestType: new(PrepareArgs).ProtoReflect(), responseType: new(empty.Empty).ProtoReflect()},
 	2: {requestType: new(CommitArgs).ProtoReflect(), responseType: new(empty.Empty).ProtoReflect()},
+	3: {requestType: new(ViewChangeArgs).ProtoReflect(), responseType: new(empty.Empty).ProtoReflect()},
+	4: {requestType: new(NewViewArgs).ProtoReflect(), responseType: new(empty.Empty).ProtoReflect()},
 }

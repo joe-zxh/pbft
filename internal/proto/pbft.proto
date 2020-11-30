@@ -20,7 +20,48 @@ service PBFT {
   rpc Commit(CommitArgs) returns (google.protobuf.Empty) {
     option (gorums.multicast) = true;
   }
+
+  rpc ViewChange(ViewChangeArgs) returns (google.protobuf.Empty) {
+    option (gorums.multicast) = true;
+  }
+
+  rpc NewView(NewViewArgs) returns (google.protobuf.Empty) {
+    option (gorums.multicast) = true;
+  }
 }
+
+message Pm {
+  PrePrepareArgs PP = 1;
+  repeated PrepareArgs P = 2;
+}
+
+message CheckPointArgs {
+  uint32 Seq = 1;
+  bytes Digest = 2;
+  uint32 Rid = 3;
+}
+
+message CheckPoint {
+  uint32 Seq =1;
+  bool Stable = 2;
+  bytes State = 3;
+  repeated CheckPointArgs Proof = 4;
+}
+
+message ViewChangeArgs {
+  uint32 View = 1;
+  CheckPoint CP = 2;
+  repeated Pm P = 3;
+  uint32 Rid = 4;
+}
+
+message NewViewArgs {
+  uint32 View = 1;
+  repeated ViewChangeArgs V = 2;
+  repeated PrePrepareArgs O = 3;
+}
+
+// log replication的协议消息
 
 message Command {bytes Data = 1;}
 
