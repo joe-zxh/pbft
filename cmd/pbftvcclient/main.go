@@ -168,6 +168,13 @@ func (q *qspec) AskViewChangeQF(_ *client.Empty, signatures map[uint32]*client.E
 	return &client.Empty{}, true
 }
 
+func (q *qspec) RoundTripQF(_ *client.Empty, signatures map[uint32]*client.Empty) (*client.Empty, bool) {
+	if len(signatures) < q.n {
+		return nil, false
+	}
+	return &client.Empty{}, true
+}
+
 type hotstuffClient struct {
 	inflight      uint64
 	reader        io.ReadCloser
@@ -234,6 +241,27 @@ func (c *hotstuffClient) Close() {
 
 func (c *hotstuffClient) SendViewChangeCommands(ctx context.Context, prepareNum int, viewchangeNum int) error {
 
+	// 先获取round-trip的时间
+	roundtripNum := 1000
+	var rrtTotal time.Duration
+	var i int
+	for i = 0; i < roundtripNum; i++ {
+		start := time.Now()
+		promise := c.gorumsConfig.RoundTrip(ctx, &client.Empty{})
+		_, err := promise.Get()
+		duration := time.Since(start)
+		rrtTotal = rrtTotal + duration
+		if err != nil {
+			qcError, ok := err.(client.QuorumCallError)
+			if !ok || qcError.Reason != context.Canceled.Error() {
+				log.Printf("Did not get enough signatures for command: %v\n", err)
+			}
+			break
+		}
+	}
+	rtt := float64(rrtTotal.Milliseconds()) / float64(i)
+	log.Printf("round trip time: %vms\n", rtt)
+
 	for i := 1; i <= prepareNum; i++ {
 		cmd := &client.Command{
 			ClientID:       uint32(c.conf.SelfID),
@@ -263,7 +291,6 @@ func (c *hotstuffClient) SendViewChangeCommands(ctx context.Context, prepareNum 
 	log.Printf("log replication for %d entries complete, start view change...\n", prepareNum)
 
 	var totalDuration time.Duration
-	var i int
 	for i = 0; i < viewchangeNum; i++ {
 		start := time.Now()
 		promise := c.gorumsConfig.AskViewChange(ctx, &client.Empty{})

@@ -8,6 +8,14 @@ if "%1"=="" (
     echo %servernum%
 )
 
+if "%2"=="" (
+    set batchsize=30
+    echo %batchsize%
+) else (
+    set batchsize=%2%
+    echo %2%
+)
+
 ::获取父目录
 pushd..
 set home=%cd%
@@ -23,7 +31,7 @@ set tls=true
 
 ::启动服务端
 for /l %%i in (%beg%,1,%end%) do (
-start cmd /k "cd/d %home% && %serverProcName% --cluster-size %servernum% --tls=%tls% --self-id %%i --privkey %home%/keys/r%%i.key --batch-size 30"
+start cmd /k "cd/d %home% && %serverProcName% --cluster-size %servernum% --tls=%tls% --self-id %%i --privkey %home%/keys/r%%i.key --batch-size %batchsize%"
 )
 
 :: --memprofile %home%/profileMem/mem%%i.prof

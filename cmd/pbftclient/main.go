@@ -220,7 +220,13 @@ func (q *qspec) ExecCommandQF(_ *client.Command, signatures map[uint32]*client.E
 	return &client.Empty{}, true
 }
 
+// 只可以由vcclient使用
 func (q *qspec) AskViewChangeQF(_ *client.Empty, signatures map[uint32]*client.Empty) (*client.Empty, bool) {
+	return &client.Empty{}, true
+}
+
+// 只可以由vcclient使用
+func (q *qspec) RoundTripQF(_ *client.Empty, signatures map[uint32]*client.Empty) (*client.Empty, bool) {
 	return &client.Empty{}, true
 }
 

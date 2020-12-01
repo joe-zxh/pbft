@@ -419,11 +419,16 @@ func (srv *pbftServer) ExecCommand(_ context.Context, cmd *client.Command, out f
 	}(id, finished)
 }
 
-func (srv *pbftServer) AskViewChange(_ context.Context, emt *client.Empty, out func(*client.Empty, error)) {
+func (srv *pbftServer) AskViewChange(_ context.Context, _ *client.Empty, out func(*client.Empty, error)) {
 	srv.pbft.StartViewChange()
 
 	<-srv.pbft.ViewChangeChan
 
+	// send response
+	out(&client.Empty{}, nil)
+}
+
+func (srv *pbftServer) RoundTrip(_ context.Context, _ *client.Empty, out func(*client.Empty, error)) {
 	// send response
 	out(&client.Empty{}, nil)
 }
