@@ -1,3 +1,4 @@
+// client for view change
 package main
 
 import (
@@ -256,12 +257,14 @@ func (c *hotstuffClient) SendViewChangeCommands(ctx context.Context, prepareNum 
 		}(promise)
 	}
 	c.wg.Wait()
-
+	if prepareNum > 0 {
+		time.Sleep(3 * time.Second) // 等待server集群稳定
+	}
 	log.Printf("log replication for %d entries complete, start view change...\n", prepareNum)
-	time.Sleep(3 * time.Second) // 等待server集群稳定
 
 	var totalDuration time.Duration
-	for i := 1; i <= viewchangeNum; i++ {
+	var i int
+	for i = 0; i < viewchangeNum; i++ {
 		start := time.Now()
 		promise := c.gorumsConfig.AskViewChange(ctx, &client.Empty{})
 		_, err := promise.Get()
@@ -272,9 +275,10 @@ func (c *hotstuffClient) SendViewChangeCommands(ctx context.Context, prepareNum 
 			if !ok || qcError.Reason != context.Canceled.Error() {
 				log.Printf("Did not get enough signatures for command: %v\n", err)
 			}
+			break
 		}
 	}
 
-	log.Printf("prepare num: %d, view change average time: %vms\n", prepareNum, float64(totalDuration.Milliseconds())/float64(viewchangeNum))
+	log.Printf("prepare num: %d, view change num: %d, view change average time: %vms\n", prepareNum, i, float64(totalDuration.Milliseconds())/float64(i))
 	return nil
 }

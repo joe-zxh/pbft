@@ -37,25 +37,26 @@ type PBFTCore struct {
 	Exec chan []data.Command
 
 	// from pbft
-	Mut        sync.Mutex // Lock for all internal data
-	ID         uint32
-	TSeq       atomic.Uint32 // Total sequence number of next request
-	View       uint32
-	Apply      uint32                       // Sequence number of last executed request
-	Log        map[data.EntryID]*data.Entry // bycon的log是一个数组，因为需要保证连续，leader可以处理log inconsistency，而pbft不需要。client只有执行完上一条指令后，才会发送下一条请求，所以顺序 并没有问题。
-	CPs        map[uint32]*data.CheckPoint
-	WaterLow   uint32
-	WaterHigh  uint32
-	F          uint32
-	q          uint32
-	N          uint32
-	monitor    bool
-	Change     *time.Timer
-	Changing   bool                // Indicate if this node is changing view
-	state      interface{}         // Deterministic state machine's state
-	ApplyQueue *util.PriorityQueue // 因为PBFT的特殊性(log是一个map，而不是list)，所以这里需要一个applyQueue。
-	VCs        map[uint32][]*data.ViewChangeArgs
-	lastcp     uint32
+	Mut           sync.Mutex // Lock for all internal data
+	ID            uint32
+	TSeq          atomic.Uint32 // Total sequence number of next request
+	View          uint32
+	BroadcastView uint32                       // 用于辅助view change实验的...避免多次发起同一个view的view-change...
+	Apply         uint32                       // Sequence number of last executed request
+	Log           map[data.EntryID]*data.Entry // bycon的log是一个数组，因为需要保证连续，leader可以处理log inconsistency，而pbft不需要。client只有执行完上一条指令后，才会发送下一条请求，所以顺序 并没有问题。
+	CPs           map[uint32]*data.CheckPoint
+	WaterLow      uint32
+	WaterHigh     uint32
+	F             uint32
+	q             uint32
+	N             uint32
+	monitor       bool
+	Change        *time.Timer
+	Changing      bool                // Indicate if this node is changing view
+	state         interface{}         // Deterministic state machine's state
+	ApplyQueue    *util.PriorityQueue // 因为PBFT的特殊性(log是一个map，而不是list)，所以这里需要一个applyQueue。
+	VCs           map[uint32][]*data.ViewChangeArgs
+	lastcp        uint32
 
 	Leader   uint32 // view改变的时候，再改变
 	IsLeader bool   // view改变的时候，再改变
@@ -107,22 +108,23 @@ func New(conf *config.ReplicaConfig) *PBFTCore {
 		Exec:     make(chan []data.Command, 1),
 
 		// pbft
-		ID:         uint32(conf.ID),
-		View:       1,
-		Apply:      0,
-		Log:        make(map[data.EntryID]*data.Entry),
-		CPs:        make(map[uint32]*data.CheckPoint),
-		WaterLow:   0,
-		WaterHigh:  2 * checkpointDiv,
-		F:          uint32(len(conf.Replicas)-1) / 3,
-		N:          uint32(len(conf.Replicas)),
-		monitor:    false,
-		Change:     nil,
-		Changing:   false,
-		state:      make([]interface{}, 1),
-		ApplyQueue: util.NewPriorityQueue(),
-		VCs:        make(map[uint32][]*data.ViewChangeArgs),
-		lastcp:     0,
+		ID:            uint32(conf.ID),
+		View:          1,
+		BroadcastView: 1,
+		Apply:         0,
+		Log:           make(map[data.EntryID]*data.Entry),
+		CPs:           make(map[uint32]*data.CheckPoint),
+		WaterLow:      0,
+		WaterHigh:     2 * checkpointDiv,
+		F:             uint32(len(conf.Replicas)-1) / 3,
+		N:             uint32(len(conf.Replicas)),
+		monitor:       false,
+		Change:        nil,
+		Changing:      false,
+		state:         make([]interface{}, 1),
+		ApplyQueue:    util.NewPriorityQueue(),
+		VCs:           make(map[uint32][]*data.ViewChangeArgs),
+		lastcp:        0,
 
 		ViewChangeChan: make(chan struct{}, 1),
 	}

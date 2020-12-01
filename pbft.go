@@ -428,8 +428,13 @@ func (pbft *PBFT) StartViewChange() {
 	pbft.Mut.Lock()
 	logger.Printf("StartViewChange: \n")
 	vcArgs := pbft.GenerateViewChange()
-	pbft.Mut.Unlock()
-
+	if vcArgs.View <= pbft.BroadcastView { // 避免重复broadcast同一个view的view change，否则会出现[V/NewView/Fail] view change message is not enough
+		pbft.Mut.Unlock()
+		return
+	} else {
+		pbft.BroadcastView = vcArgs.View
+		pbft.Mut.Unlock()
+	}
 	logger.Printf("Broadcast ViewChange:Args:%+v\n", *vcArgs)
 	pbft.cfg.ViewChange(proto.VC2Proto(vcArgs)) // 自己不需要处理，到2f个的时候，新leader再生成vcArgs
 }
@@ -457,11 +462,11 @@ func (pbft *pbftServer) ViewChange(ctx context.Context, protoVC *proto.ViewChang
 
 	// Leader entering new view
 	if (pbft.View-1)%pbft.N+1 == pbft.ID && len(pbft.VCs[args.View]) >= 2*int(pbft.F) {
+		pbft.VCs[args.View] = append(pbft.VCs[args.View], pbft.GenerateViewChange())
 		nvArgs := data.NewViewArgs{
 			View: args.View,
 			V:    pbft.VCs[args.View],
 		}
-		nvArgs.V = append(nvArgs.V, pbft.GenerateViewChange())
 
 		mins, maxs, pprepared := pbft.CalcMinMaxspp(&nvArgs)
 		pps := pbft.CalcPPS(args.View, mins, maxs, pprepared)
@@ -495,6 +500,9 @@ func (pbft *pbftServer) NewView(ctx context.Context, protoNV *proto.NewViewArgs)
 		}
 	}
 	if len(vcs) <= int(2*pbft.F) {
+		for i, sz := 0, len(args.V); i < sz; i++ {
+			log.Printf("args.V: %+v\n", args.V[i])
+		}
 		panic("[V/NewView/Fail] view change message is not enough")
 		return
 	}
@@ -534,18 +542,19 @@ func (pbft *PBFT) EnteringNewView(nvArgs *data.NewViewArgs, mins uint32, maxs ui
 
 	pbft.TSeq.Store(maxs)
 	ps := make([]*data.PrepareArgs, len(pps))
-	for i, sz := 0, len(pps); i < sz; i++ {
-		ent := pbft.GetEntry(data.EntryID{nvArgs.View, pps[i].Seq})
-		ent.PP = pps[i]
-
-		pArgs := data.PrepareArgs{
-			View:   nvArgs.View,
-			Seq:    pps[i].Seq,
-			Digest: ent.Hash(),
-			Sender: pbft.ID,
-		}
-		ps[i] = &pArgs
-	}
+	// 注释部分会使s.log会越来越长
+	//for i, sz := 0, len(pps); i < sz; i++ {
+	//	ent := pbft.GetEntry(data.EntryID{nvArgs.View, pps[i].Seq})
+	//	ent.PP = pps[i]
+	//
+	//	pArgs := data.PrepareArgs{
+	//		View:   nvArgs.View,
+	//		Seq:    pps[i].Seq,
+	//		Digest: ent.Hash(),
+	//		Sender: pbft.ID,
+	//	}
+	//	ps[i] = &pArgs
+	//}
 	pbft.View = nvArgs.View
 	pbft.Changing = false
 	pbft.RemoveOldViewChange(nvArgs.View)
