@@ -430,7 +430,7 @@ func (pbft *PBFT) StartViewChange() {
 	vcArgs := pbft.GenerateViewChange()
 	pbft.Mut.Unlock()
 
-	logger.Printf("Broadcast ViewChange:Args:%v\n", *vcArgs)
+	logger.Printf("Broadcast ViewChange:Args:%+v\n", *vcArgs)
 	pbft.cfg.ViewChange(proto.VC2Proto(vcArgs)) // 自己不需要处理，到2f个的时候，新leader再生成vcArgs
 }
 
@@ -440,7 +440,7 @@ func (pbft *pbftServer) ViewChange(ctx context.Context, protoVC *proto.ViewChang
 
 	args := protoVC.Proto2VC()
 
-	logger.Printf("Receive ViewChange: args: %v\n", args)
+	logger.Printf("Receive ViewChange: args: %+v\n", args)
 
 	// Ignore old viewchange message
 	if args.View <= pbft.View || args.Rid == pbft.ID {
@@ -456,7 +456,7 @@ func (pbft *pbftServer) ViewChange(ctx context.Context, protoVC *proto.ViewChang
 	pbft.VCs[args.View] = append(pbft.VCs[args.View], args)
 
 	// Leader entering new view
-	if args.View%pbft.N == pbft.ID && len(pbft.VCs[args.View]) >= 2*int(pbft.F) {
+	if (pbft.View-1)%pbft.N+1 == pbft.ID && len(pbft.VCs[args.View]) >= 2*int(pbft.F) {
 		nvArgs := data.NewViewArgs{
 			View: args.View,
 			V:    pbft.VCs[args.View],
@@ -485,7 +485,7 @@ func (pbft *pbftServer) NewView(ctx context.Context, protoNV *proto.NewViewArgs)
 		return
 	}
 
-	logger.Printf("Receive NewView:Args:%v", args)
+	logger.Printf("Receive NewView:Args:%+v", args)
 
 	// Verify V sest
 	vcs := make(map[uint32]bool)
@@ -504,7 +504,13 @@ func (pbft *pbftServer) NewView(ctx context.Context, protoNV *proto.NewViewArgs)
 	pps := pbft.CalcPPS(args.View, mins, maxs, pprepared)
 
 	for i, sz := 0, len(pps); i < sz; i++ {
-		if pps[i].View != args.O[i].View || pps[i].Seq != args.O[i].Seq || data.CommandsEqual(pps[i].Commands, args.O[i].Commands) {
+		if pps[i].View != args.O[i].View || pps[i].Seq != args.O[i].Seq || !data.CommandsEqual(pps[i].Commands, args.O[i].Commands) {
+
+			log.Printf("pps[i].View != args.O[i].View: %v, pps[i].Seq != args.O[i].Seq: %v, pps[i].Commands: %v, args.O[i].Commands: %v\n",
+				pps[i].View != args.O[i].View,
+				pps[i].Seq != args.O[i].Seq,
+				pps[i].Commands, args.O[i].Commands)
+
 			panic("NewView Fail: PrePrepare message missmatch : %+v")
 		}
 	}
@@ -526,7 +532,7 @@ func (pbft *PBFT) EnteringNewView(nvArgs *data.NewViewArgs, mins uint32, maxs ui
 		// todo: pbft.stablizeCP(pbft.CPs[mins])
 	}
 
-	pbft.TSeq.Store(maxs + 1)
+	pbft.TSeq.Store(maxs)
 	ps := make([]*data.PrepareArgs, len(pps))
 	for i, sz := 0, len(pps); i < sz; i++ {
 		ent := pbft.GetEntry(data.EntryID{nvArgs.View, pps[i].Seq})
@@ -544,18 +550,19 @@ func (pbft *PBFT) EnteringNewView(nvArgs *data.NewViewArgs, mins uint32, maxs ui
 	pbft.Changing = false
 	pbft.RemoveOldViewChange(nvArgs.View)
 
+	pbft.Leader = (pbft.View-1)%pbft.N + 1
+	pbft.IsLeader = (pbft.Leader == pbft.ID)
+
 	// 回消息给client...
 	pbft.ViewChangeChan <- struct{}{}
 
-	go func() {
-		pbft.Mut.Lock()
-		pbft.Mut.Unlock()
-		for i, sz := 0, len(ps); i < sz; i++ {
-			logger.Printf("Broadcast Prepare:Args:%v", pbft, ps[i])
-			pbft.cfg.Prepare(proto.P2Proto(ps[i]))
-			time.Sleep(5 * time.Millisecond)
-		}
-	}()
+	//go func() {
+	//	for i, sz := 0, len(ps); i < sz; i++ {
+	//		logger.Printf("Broadcast Prepare:Args:%v", pbft, ps[i])
+	//		pbft.cfg.Prepare(proto.P2Proto(ps[i]))
+	//		time.Sleep(5 * time.Millisecond)
+	//	}
+	//}()
 
 	return ps
 }

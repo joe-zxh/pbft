@@ -90,7 +90,7 @@ func main() {
 	pflag.Bool("print-commands", false, "Commands will be printed to stdout")
 	pflag.Bool("print-throughput", false, "Throughput measurements will be printed stdout")
 	pflag.Int("interval", 1000, "Throughput measurement interval in milliseconds")
-	pflag.Bool("tls", false, "Enable TLS")
+	pflag.Bool("tls", true, "Enable TLS")
 	pflag.String("client-listen", "", "Override the listen address for the client server")
 	pflag.String("peer-listen", "", "Override the listen address for the replica (peer) server")
 	clusterSize := pflag.Int("cluster-size", 4, "specify the size of the cluster")
@@ -425,7 +425,6 @@ func (srv *pbftServer) AskViewChange(_ context.Context, emt *client.Empty, out f
 	<-srv.pbft.ViewChangeChan
 
 	// send response
-	log.Printf("view change finish!\n")
 	out(&client.Empty{}, nil)
 }
 

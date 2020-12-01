@@ -9,8 +9,8 @@ import (
 var logger *log.Logger
 
 func init() {
-	logger = log.New(os.Stderr, "hs: ", log.Lshortfile|log.Ltime|log.Lmicroseconds)
-	if os.Getenv("PBFT_LOG") != "1" {
+	logger = log.New(os.Stderr, "pbft: ", log.Lshortfile|log.Ltime|log.Lmicroseconds)
+	if os.Getenv("BFT_LOG") != "1" {
 		logger.SetOutput(ioutil.Discard)
 	}
 }
