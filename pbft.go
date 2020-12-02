@@ -174,10 +174,12 @@ func (pbft *PBFT) Propose(timeout bool) {
 	if pp == nil {
 		return
 	}
-	logger.Printf("[B/PrePrepare]: view: %d, seq: %d, (%d commands)\n", pp.View, pp.Seq, len(pp.Commands))
-	protobuf := proto.PP2Proto(pp)
-	pbft.cfg.PrePrepare(protobuf) // 通过gorums的cfg进行multicast，multicast应该是 不会发送消息给自己的。
-	pbft.handlePrePrepare(pp)     // leader自己也要处理proposal
+	go func() {
+		logger.Printf("[B/PrePrepare]: view: %d, seq: %d, (%d commands)\n", pp.View, pp.Seq, len(pp.Commands))
+		protobuf := proto.PP2Proto(pp)
+		pbft.cfg.PrePrepare(protobuf) // 通过gorums的cfg进行multicast，multicast应该是 不会发送消息给自己的。
+		pbft.handlePrePrepare(pp)     // leader自己也要处理proposal
+	}()
 }
 
 // 这个server是面向 集群内部的。
