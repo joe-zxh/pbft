@@ -174,12 +174,10 @@ func (pbft *PBFT) Propose(timeout bool) {
 	if pp == nil {
 		return
 	}
-	go func() {
-		logger.Printf("[B/PrePrepare]: view: %d, seq: %d, (%d commands)\n", pp.View, pp.Seq, len(pp.Commands))
-		protobuf := proto.PP2Proto(pp)
-		pbft.cfg.PrePrepare(protobuf) // 通过gorums的cfg进行multicast，multicast应该是 不会发送消息给自己的。
-		pbft.handlePrePrepare(pp)     // leader自己也要处理proposal
-	}()
+	logger.Printf("[B/PrePrepare]: view: %d, seq: %d, (%d commands)\n", pp.View, pp.Seq, len(pp.Commands))
+	protobuf := proto.PP2Proto(pp)
+	pbft.cfg.PrePrepare(protobuf) // 通过gorums的cfg进行multicast，multicast应该是 不会发送消息给自己的。
+	pbft.handlePrePrepare(pp)     // leader自己也要处理proposal
 }
 
 // 这个server是面向 集群内部的。
@@ -438,7 +436,7 @@ func (pbft *PBFT) StartViewChange() {
 		pbft.Mut.Unlock()
 	}
 	logger.Printf("Broadcast ViewChange:Args:%+v\n", *vcArgs)
-	pbft.cfg.ViewChange(proto.VC2Proto(vcArgs)) // 自己不需要处理，到2f个的时候，新leader再生成vcArgs
+	go pbft.cfg.ViewChange(proto.VC2Proto(vcArgs)) // 自己不需要处理，到2f个的时候，新leader再生成vcArgs
 }
 
 func (pbft *pbftServer) ViewChange(ctx context.Context, protoVC *proto.ViewChangeArgs) {
@@ -477,7 +475,7 @@ func (pbft *pbftServer) ViewChange(ctx context.Context, protoVC *proto.ViewChang
 
 		logger.Printf("Broadcast NewView:Args:%v", nvArgs)
 
-		pbft.cfg.NewView(proto.NV2Proto(&nvArgs))
+		go pbft.cfg.NewView(proto.NV2Proto(&nvArgs))
 		pbft.EnteringNewView(&nvArgs, mins, maxs, pps)
 	}
 }
@@ -570,7 +568,7 @@ func (pbft *PBFT) EnteringNewView(nvArgs *data.NewViewArgs, mins uint32, maxs ui
 	//go func() {
 	//	for i, sz := 0, len(ps); i < sz; i++ {
 	//		logger.Printf("Broadcast Prepare:Args:%v", pbft, ps[i])
-	//		pbft.cfg.Prepare(proto.P2Proto(ps[i]))
+	//		go pbft.cfg.Prepare(proto.P2Proto(ps[i]))
 	//		time.Sleep(5 * time.Millisecond)
 	//	}
 	//}()

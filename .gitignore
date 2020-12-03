@@ -4,6 +4,7 @@ profileMem/
 
 # Binaries for programs and plugins
 pbftclient
+pbftvcclient
 pbftserver
 *.exe
 *.exe~
