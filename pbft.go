@@ -342,65 +342,93 @@ func (pbft *pbftServer) Commit(ctx context.Context, pC *proto.CommitArgs) (*empt
 
 // view change...
 func (pbft *PBFT) StartViewChange() {
-	//pbft.Mut.Lock()
-	//logger.Printf("StartViewChange: \n")
-	//vcArgs := pbft.GenerateViewChange()
-	//if vcArgs.View <= pbft.BroadcastView { // 避免重复broadcast同一个view的view change，否则会出现[V/NewView/Fail] view change message is not enough
-	//	pbft.Mut.Unlock()
-	//	return
-	//} else {
-	//	pbft.BroadcastView = vcArgs.View
-	//	pbft.Mut.Unlock()
-	//}
-	//logger.Printf("Broadcast ViewChange:Args:%+v\n", *vcArgs)
-	//go pbft.cfg.ViewChange(proto.VC2Proto(vcArgs)) // 自己不需要处理，到2f个的时候，新leader再生成vcArgs
+	pbft.Mut.Lock()
+	logger.Printf("StartViewChange: \n")
+	vcArgs := pbft.GenerateViewChange()
+	if vcArgs.View <= pbft.BroadcastView { // 避免重复broadcast同一个view的view change，否则会出现[V/NewView/Fail] view change message is not enough
+		pbft.Mut.Unlock()
+		return
+	} else {
+		pbft.BroadcastView = vcArgs.View
+		pbft.Mut.Unlock()
+	}
+	logger.Printf("Broadcast ViewChange:Args:%+v\n", *vcArgs)
+	pbft.BroadcastViewChange(proto.VC2Proto(vcArgs)) // 自己不需要处理，到2f个的时候，新leader再生成vcArgs
+}
+
+func (pbft *PBFT) BroadcastViewChange(pVC *proto.ViewChangeArgs) {
+	logger.Printf("[B/ViewChange]: view: %d\n", pVC.View)
+
+	for rid, client := range pbft.nodes {
+		if rid != pbft.Config.ID {
+			go func(id config.ReplicaID, cli *proto.PBFTClient) {
+				_, err := (*cli).ViewChange(context.TODO(), pVC)
+				if err != nil {
+					panic(err)
+				}
+			}(rid, client)
+		}
+	}
+}
+
+func (pbft *PBFT) BroadcastNewView(pNV *proto.NewViewArgs) {
+	logger.Printf("[B/NewView]: view: %d\n", pNV.View)
+
+	for rid, client := range pbft.nodes {
+		if rid != pbft.Config.ID {
+			go func(id config.ReplicaID, cli *proto.PBFTClient) {
+				_, err := (*cli).NewView(context.TODO(), pNV)
+				if err != nil {
+					panic(err)
+				}
+			}(rid, client)
+		}
+	}
 }
 
 func (pbft *pbftServer) ViewChange(ctx context.Context, protoVC *proto.ViewChangeArgs) (*empty.Empty, error) {
-	return &empty.Empty{}, nil
+	pbft.Mut.Lock()
+	defer pbft.Mut.Unlock()
 
-	//pbft.Mut.Lock()
-	//defer pbft.Mut.Unlock()
-	//
-	//args := protoVC.Proto2VC()
-	//
-	//logger.Printf("Receive ViewChange: args: %+v\n", args)
-	//
-	//// Ignore old viewchange message
-	//if args.View <= pbft.View || args.Rid == pbft.ID {
-	//	return &empty.Empty{}, nil
-	//}
-	//
-	//_, ok := pbft.VCs[args.View]
-	//if !ok {
-	//	pbft.VCs[args.View] = make([]*data.ViewChangeArgs, 0)
-	//}
-	//
-	//// Insert this view change message to its log
-	//pbft.VCs[args.View] = append(pbft.VCs[args.View], args)
-	//
-	//// Leader entering new view
-	//if (pbft.View-1)%pbft.N+1 == pbft.ID && len(pbft.VCs[args.View]) >= 2*int(pbft.F) {
-	//	pbft.VCs[args.View] = append(pbft.VCs[args.View], pbft.GenerateViewChange())
-	//	nvArgs := data.NewViewArgs{
-	//		View: args.View,
-	//		V:    pbft.VCs[args.View],
-	//	}
-	//
-	//	mins, maxs, pprepared := pbft.CalcMinMaxspp(&nvArgs)
-	//	pps := pbft.CalcPPS(args.View, mins, maxs, pprepared)
-	//
-	//	nvArgs.O = pps
-	//
-	//	logger.Printf("Broadcast NewView:Args:%v", nvArgs)
-	//
-	//	go pbft.cfg.NewView(proto.NV2Proto(&nvArgs))
-	//	pbft.EnteringNewView(&nvArgs, mins, maxs, pps)
-	//}
+	args := protoVC.Proto2VC()
+
+	logger.Printf("Receive ViewChange: args: %+v\n", args)
+
+	// Ignore old viewchange message
+	if args.View <= pbft.View || args.Rid == pbft.ID {
+		return &empty.Empty{}, nil
+	}
+
+	_, ok := pbft.VCs[args.View]
+	if !ok {
+		pbft.VCs[args.View] = make([]*data.ViewChangeArgs, 0)
+	}
+
+	// Insert this view change message to its log
+	pbft.VCs[args.View] = append(pbft.VCs[args.View], args)
+
+	// Leader entering new view
+	if (pbft.View-1)%pbft.N+1 == pbft.ID && len(pbft.VCs[args.View]) >= 2*int(pbft.F) {
+		pbft.VCs[args.View] = append(pbft.VCs[args.View], pbft.GenerateViewChange())
+		nvArgs := data.NewViewArgs{
+			View: args.View,
+			V:    pbft.VCs[args.View],
+		}
+
+		mins, maxs, pprepared := pbft.CalcMinMaxspp(&nvArgs)
+		pps := pbft.CalcPPS(args.View, mins, maxs, pprepared)
+
+		nvArgs.O = pps
+
+		logger.Printf("Broadcast NewView:Args:%v", nvArgs)
+
+		go pbft.BroadcastNewView(proto.NV2Proto(&nvArgs))
+		pbft.EnteringNewView(&nvArgs, mins, maxs, pps)
+	}
+	return &empty.Empty{}, nil
 }
 
 func (pbft *pbftServer) NewView(ctx context.Context, protoNV *proto.NewViewArgs) (*empty.Empty, error) {
-	return &empty.Empty{}, nil
 
 	args := protoNV.Proto2NV()
 

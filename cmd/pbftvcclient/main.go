@@ -242,7 +242,7 @@ func (c *hotstuffClient) Close() {
 func (c *hotstuffClient) SendViewChangeCommands(ctx context.Context, prepareNum int, viewchangeNum int) error {
 
 	// 先获取round-trip的时间
-	roundtripNum := 1000
+	roundtripNum := 10000
 	var rrtTotal time.Duration
 	var i int
 	for i = 0; i < roundtripNum; i++ {
@@ -306,6 +306,6 @@ func (c *hotstuffClient) SendViewChangeCommands(ctx context.Context, prepareNum 
 		}
 	}
 
-	log.Printf("prepare num: %d, view change num: %d, view change average time: %vms\n", prepareNum, i, float64(totalDuration.Milliseconds())/float64(i))
+	log.Printf("prepare num: %d, view change num: %d, view change average time: %vms\n", prepareNum, i, float64(totalDuration.Milliseconds())/float64(i)-rtt)
 	return nil
 }
