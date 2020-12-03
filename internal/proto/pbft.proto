@@ -2,31 +2,24 @@ syntax = "proto3";
 
 package proto;
 
-import "gorums.proto";
-
 import "google/protobuf/empty.proto";
 
 option go_package = "github.com/joe-zxh/pbft/internal/proto";
 
 service PBFT {
   rpc PrePrepare(PrePrepareArgs) returns (google.protobuf.Empty) {
-    option (gorums.multicast) = true;
   }
 
   rpc Prepare(PrepareArgs) returns (google.protobuf.Empty) {
-    option (gorums.multicast) = true;
   }
 
   rpc Commit(CommitArgs) returns (google.protobuf.Empty) {
-    option (gorums.multicast) = true;
   }
 
   rpc ViewChange(ViewChangeArgs) returns (google.protobuf.Empty) {
-    option (gorums.multicast) = true;
   }
 
   rpc NewView(NewViewArgs) returns (google.protobuf.Empty) {
-    option (gorums.multicast) = true;
   }
 }
 
@@ -66,19 +59,22 @@ message NewViewArgs {
 message Command {bytes Data = 1;}
 
 message PrePrepareArgs {
-  uint32 View = 1;
-  uint32 Seq = 2;
-  repeated Command Commands = 3;
+  uint32 Sender = 1;
+  uint32 View = 2;
+  uint32 Seq = 3;
+  repeated Command Commands = 4;
 }
 
 message PrepareArgs {
-  uint32 View = 1;
-  uint32 Seq = 2;
-  bytes Digest = 3;
+  uint32 Sender = 1;
+  uint32 View = 2;
+  uint32 Seq = 3;
+  bytes Digest = 4;
 }
 
 message CommitArgs {
-  uint32 View = 1;
-  uint32 Seq = 2;
-  bytes Digest = 3;
+  uint32 Sender = 1;
+  uint32 View = 2;
+  uint32 Seq = 3;
+  bytes Digest = 4;
 }

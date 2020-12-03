@@ -25,7 +25,7 @@ func main() {
 	pflag.Usage = usage
 	var (
 		startID    = pflag.IntP("start-id", "i", 1, "The ID of the first replica.")
-		tls        = pflag.Bool("tls", false, "Generate self-signed TLS certificates. (Must also specify hosts)")
+		tls        = pflag.Bool("tls", true, "Generate self-signed TLS certificates. (Must also specify hosts)")
 		keyPattern = pflag.StringP("pattern", "p", defaultPattern, "Pattern for key file naming. '*' will be replaced by a number.")
 		numKeys    = pflag.IntP("num", "n", 1, "Number of keys to generate")
 		hosts      = pflag.StringSliceP("hosts", "h", []string{}, "Comma-separated list of hostnames or IPs. One for each replica. Or you can use one value for all replicas.")

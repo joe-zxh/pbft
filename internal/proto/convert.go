@@ -33,6 +33,7 @@ func (pp *PrePrepareArgs) Proto2PP() *data.PrePrepareArgs {
 
 func P2Proto(dp *data.PrepareArgs) *PrepareArgs {
 	return &PrepareArgs{
+		Sender: dp.Sender,
 		View:   dp.View,
 		Seq:    dp.Seq,
 		Digest: dp.Digest.ToSlice(),
@@ -41,8 +42,9 @@ func P2Proto(dp *data.PrepareArgs) *PrepareArgs {
 
 func (p *PrepareArgs) Proto2P() *data.PrepareArgs {
 	dpp := &data.PrepareArgs{
-		View: p.View,
-		Seq:  p.Seq,
+		Sender: p.Sender,
+		View:   p.View,
+		Seq:    p.Seq,
 	}
 	copy(dpp.Digest[:], p.Digest[:len(dpp.Digest)])
 	return dpp
@@ -50,6 +52,7 @@ func (p *PrepareArgs) Proto2P() *data.PrepareArgs {
 
 func C2Proto(dc *data.CommitArgs) *CommitArgs {
 	return &CommitArgs{
+		Sender: dc.Sender,
 		View:   dc.View,
 		Seq:    dc.Seq,
 		Digest: dc.Digest.ToSlice(),
@@ -58,8 +61,9 @@ func C2Proto(dc *data.CommitArgs) *CommitArgs {
 
 func (c *CommitArgs) Proto2C() *data.CommitArgs {
 	dc := &data.CommitArgs{
-		View: c.View,
-		Seq:  c.Seq,
+		Sender: c.Sender,
+		View:   c.View,
+		Seq:    c.Seq,
 	}
 	copy(dc.Digest[:], c.Digest[:len(dc.Digest)])
 	return dc

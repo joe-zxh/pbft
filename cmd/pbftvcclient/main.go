@@ -59,7 +59,7 @@ func main() {
 
 	help := pflag.BoolP("help", "h", false, "Prints this text.")
 	pflag.Uint32("self-id", 0, "The id for this replica.")
-	pflag.Int("payload-size", 30, "The size of the payload in bytes")
+	pflag.Int("payload-size", 0, "The size of the payload in bytes")
 	pflag.Bool("tls", true, "Enable TLS")
 	clusterSize := pflag.Int("cluster-size", 4, "specify the size of the cluster")
 	prepareNum := pflag.Int("prepare-num", 10, "specify the number of prepare entries before view changes...")

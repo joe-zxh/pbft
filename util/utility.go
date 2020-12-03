@@ -14,6 +14,12 @@ const (
 	debug = 1
 )
 
+func PanicErr(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
 // Struct's all member must be exported todo: 改sha512
 func Digest(message interface{}) string {
 	var buf bytes.Buffer
@@ -34,14 +40,14 @@ func Dprintf(fmt string, v ...interface{}) {
 	}
 }
 
-func GetBytes(key interface{}) ([]byte,error) {
+func GetBytes(key interface{}) ([]byte, error) {
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
 	err := enc.Encode(key)
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
-	return buf.Bytes(),nil
+	return buf.Bytes(), nil
 }
 
 // PQElem is the element of priority queue

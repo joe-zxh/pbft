@@ -21,7 +21,7 @@ protoc `
 --proto_path=D:\Documents\ws\go\pkg\mod\github.com\relab\gorums@v0.2.1 `
 --proto_path=.\internal\proto  `
 --go_out=paths=source_relative:.\internal\proto `
---gorums_out=paths=source_relative:.\internal\proto `
+--go-grpc_out=paths=source_relative:.\internal\proto `
 pbft.proto
 
 

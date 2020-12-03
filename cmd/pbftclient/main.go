@@ -68,12 +68,12 @@ func main() {
 	memprofile := pflag.String("memprofile", "", "File to write memory profile to")
 	pflag.Uint32("self-id", 0, "The id for this replica.")
 	pflag.Int("rate-limit", 0, "Limit the request-rate to approximately (in requests per second).")
-	pflag.Int("payload-size", 30, "The size of the payload in bytes")
+	pflag.Int("payload-size", 300, "The size of the payload in bytes")
 	pflag.Uint64("max-inflight", 10000, "The maximum number of messages that the client can wait for at once") // 用来控制客戶端的个数的
 	pflag.String("input", "", "Optional file to use for payload data")                                         // client请求的负载
 	pflag.Bool("benchmark", false, "If enabled, a BenchmarkData protobuf will be written to stdout.")
 	pflag.Int("exit-after", 0, "Number of seconds after which the program should exit.")
-	pflag.Bool("tls", false, "Enable TLS")
+	pflag.Bool("tls", true, "Enable TLS")
 	clusterSize := pflag.Int("cluster-size", 4, "specify the size of the cluster")
 	pflag.Parse()
 
