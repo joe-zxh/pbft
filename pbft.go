@@ -408,7 +408,8 @@ func (pbft *pbftServer) ViewChange(ctx context.Context, protoVC *proto.ViewChang
 	pbft.VCs[args.View] = append(pbft.VCs[args.View], args)
 
 	// Leader entering new view
-	if (pbft.View-1)%pbft.N+1 == pbft.ID && len(pbft.VCs[args.View]) >= 2*int(pbft.F) {
+	// if (pbft.View-1)%pbft.N+1 == pbft.ID && len(pbft.VCs[args.View]) >= 2*int(pbft.F) {
+	if 1 == pbft.ID && len(pbft.VCs[args.View]) >= 2*int(pbft.F) {
 		pbft.VCs[args.View] = append(pbft.VCs[args.View], pbft.GenerateViewChange())
 		nvArgs := data.NewViewArgs{
 			View: args.View,
@@ -508,7 +509,8 @@ func (pbft *PBFT) EnteringNewView(nvArgs *data.NewViewArgs, mins uint32, maxs ui
 	pbft.Changing = false
 	pbft.RemoveOldViewChange(nvArgs.View)
 
-	pbft.Leader = (pbft.View-1)%pbft.N + 1
+	// pbft.Leader = (pbft.View-1)%pbft.N + 1
+	pbft.Leader = 1 // 方便实验
 	pbft.IsLeader = (pbft.Leader == pbft.ID)
 
 	// 回消息给client...

@@ -129,7 +129,7 @@ func New(conf *config.ReplicaConfig) *PBFTCore {
 		ViewChangeChan: make(chan struct{}, 1),
 	}
 	pbft.q = pbft.F*2 + 1
-	pbft.Leader = (pbft.View-1)%pbft.N + 1
+	pbft.Leader = 1
 	pbft.IsLeader = (pbft.Leader == pbft.ID)
 
 	// Put an initial stable checkpoint
