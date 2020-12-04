@@ -64,6 +64,7 @@ func main() {
 	clusterSize := pflag.Int("cluster-size", 4, "specify the size of the cluster")
 	prepareNum := pflag.Int("prepare-num", 10, "specify the number of prepare entries before view changes...")
 	viewchangeNum := pflag.Int("viewchange-num", 10, "specify the number of view changes for experiment...")
+	revise := pflag.Bool("vcrevise", true, "whether to erase deviated data in view change..., time should use this option... cpu, network should not use this option...")
 	pflag.Parse()
 
 	if *help {
@@ -140,7 +141,8 @@ func main() {
 		cancel()
 	}()
 
-	err = client.SendViewChangeCommands(ctx, *prepareNum, *viewchangeNum)
+	log.Printf("revise: %v\n", *revise)
+	err = client.SendViewChangeCommands(ctx, *prepareNum, *viewchangeNum, *revise)
 	if err != nil && !errors.Is(err, io.EOF) {
 		fmt.Fprintf(os.Stderr, "Failed to send commands: %v\n", err)
 		client.Close()
@@ -239,7 +241,7 @@ func (c *hotstuffClient) Close() {
 	c.reader.Close()
 }
 
-func (c *hotstuffClient) SendViewChangeCommands(ctx context.Context, prepareNum int, viewchangeNum int) error {
+func (c *hotstuffClient) SendViewChangeCommands(ctx context.Context, prepareNum int, viewchangeNum int, revise bool) error {
 
 	// 先获取round-trip的时间
 	roundtripNum := 10000
@@ -296,7 +298,18 @@ func (c *hotstuffClient) SendViewChangeCommands(ctx context.Context, prepareNum 
 		promise := c.gorumsConfig.AskViewChange(ctx, &client.Empty{})
 		_, err := promise.Get()
 		duration := time.Since(start)
-		totalDuration = totalDuration + duration
+
+		if revise { // 去掉偏离2倍平均值的值。
+			if i == 0 || float64(duration.Nanoseconds()) < 2*float64(totalDuration.Nanoseconds())/float64(i+1) {
+				totalDuration = totalDuration + duration
+				// log.Printf("i: %d, view change time: %v ms\n", i, float64(duration.Nanoseconds())/float64(1000000))
+			} else {
+				i--
+			}
+		} else {
+			totalDuration = totalDuration + duration
+		}
+
 		if err != nil {
 			qcError, ok := err.(client.QuorumCallError)
 			if !ok || qcError.Reason != context.Canceled.Error() {
@@ -306,6 +319,7 @@ func (c *hotstuffClient) SendViewChangeCommands(ctx context.Context, prepareNum 
 		}
 	}
 
-	log.Printf("prepare num: %d, view change num: %d, view change average time: %vms\n", prepareNum, i, float64(totalDuration.Milliseconds())/float64(i)-rtt)
+	log.Printf("prepare num: %d, view change num: %d, view change average time: %v ms\n", prepareNum, i, float64(totalDuration.Milliseconds())/float64(i))
+	log.Printf("prepare num: %d, view change num: %d, view change average time(without rtt): %v ms\n", prepareNum, i, float64(totalDuration.Milliseconds())/float64(i)-rtt)
 	return nil
 }
