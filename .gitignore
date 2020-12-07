@@ -4,8 +4,11 @@ profileMem/
 
 # Binaries for programs and plugins
 pbftclient
+!pbftclient/
 pbftvcclient
+!pbftvcclient/
 pbftserver
+!pbftserver/
 *.exe
 *.exe~
 *.dll
